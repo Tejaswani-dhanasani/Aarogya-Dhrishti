@@ -1,0 +1,13 @@
+/* Restores normal browser defaults inside the staff-portal pages.
+   Tailwind's reset removes heading sizes/margins, which these pages rely on. */
+.legacy h1 { display: block; font-size: 2em; margin: .67em 0; font-weight: 700; }
+.legacy h2 { display: block; font-size: 1.5em; margin: .83em 0; font-weight: 700; }
+.legacy h3 { display: block; font-size: 1.17em; margin: 1em 0; font-weight: 700; }
+.legacy h4 { display: block; font-size: 1em; margin: 1.33em 0; font-weight: 700; }
+.legacy p { margin: 1em 0; }
+.legacy strong, .legacy b { font-weight: bolder; }
+.legacy small { font-size: 80%; }
+.legacy em { font-style: italic; }
+.legacy button { cursor: pointer; }
+.legacy button:disabled { cursor: not-allowed; }
+.legacy input[type="checkbox"], .legacy input[type="radio"] { width: auto; }

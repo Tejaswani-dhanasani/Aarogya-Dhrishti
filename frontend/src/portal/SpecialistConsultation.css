@@ -1,0 +1,267 @@
+/* Scoped to .specialist-page so it cannot affect the rest of the app */
+.specialist-page {
+  min-height: 100vh;
+  background: #f3f8f6;
+  color: #263d35;
+  font-family: Arial, sans-serif;
+}
+
+.specialist-page .specialist-header {
+  background: linear-gradient(120deg, #075e50, #138b75);
+  color: white;
+  padding: 30px 6%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.specialist-page .specialist-brand {
+  color: #159477;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+}
+
+.specialist-page .specialist-header .specialist-brand {
+  color: #c3f2e4;
+}
+
+.specialist-page .specialist-header h1 {
+  margin: 10px 0;
+  font-size: 28px;
+}
+
+.specialist-page .specialist-header p {
+  margin: 0;
+  color: #e0f4ee;
+}
+
+.specialist-page .specialist-home-link {
+  color: white;
+  text-decoration: none;
+  border: 1px solid #ffffff80;
+  padding: 11px 17px;
+  border-radius: 8px;
+}
+
+.specialist-page .specialist-container {
+  max-width: 1400px;
+  margin: auto;
+  padding: 30px 5%;
+}
+
+.specialist-page .specialist-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 25px;
+}
+
+.specialist-page .specialist-stats article,
+.specialist-page .referral-list,
+.specialist-page .consultation-details {
+  background: white;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 3px 15px #173e3010;
+}
+
+.specialist-page .specialist-stats article span {
+  color: #71817b;
+  font-size: 14px;
+}
+
+.specialist-page .specialist-stats article h2 {
+  color: #087b65;
+  margin-bottom: 0;
+  font-size: 28px;
+}
+
+.specialist-page .specialist-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.specialist-page .referral-list h2,
+.specialist-page .consultation-details h2 {
+  margin-top: 0;
+}
+
+.specialist-page .referral-list > p {
+  color: #788780;
+  font-size: 13px;
+}
+
+.specialist-page .referral-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+  background: white;
+  border: 1px solid #e2ece8;
+  border-radius: 9px;
+  padding: 15px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.specialist-page .referral-card.selected {
+  border: 2px solid #138b75;
+  background: #effaf6;
+}
+
+.specialist-page .referral-card span,
+.specialist-page .referral-card small {
+  color: #75867e;
+  font-size: 12px;
+}
+
+.specialist-page .referral-card em {
+  font-size: 12px;
+  font-style: normal;
+  color: #946300;
+}
+
+.specialist-page .consultation-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #e8efec;
+  padding-bottom: 18px;
+}
+
+.specialist-page .consultation-title h2 {
+  margin: 8px 0 5px;
+}
+
+.specialist-page .consultation-title p {
+  color: #75867e;
+  font-size: 13px;
+}
+
+.specialist-page .consultation-status {
+  background: #eaf5f1;
+  color: #176c59;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.specialist-page .specialist-info,
+.specialist-page .referral-reason,
+.specialist-page .consultation-form {
+  padding: 22px 0;
+  border-bottom: 1px solid #e8efec;
+}
+
+.specialist-page .consultation-details h3 {
+  color: #176c59;
+  margin-top: 0;
+}
+
+.specialist-page .specialist-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.specialist-page .specialist-info-grid p {
+  font-size: 14px;
+  margin: 5px 0;
+}
+
+.specialist-page .referral-reason p {
+  background: #f5f9f7;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.specialist-page .referral-reason small {
+  color: #788780;
+  font-size: 12px;
+}
+
+.specialist-page .consultation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.specialist-page .consultation-form label {
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.specialist-page .consultation-form textarea,
+.specialist-page .consultation-form select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d6e2dc;
+  border-radius: 8px;
+  font: inherit;
+  background: white;
+}
+
+.specialist-page .consultation-form textarea:focus,
+.specialist-page .consultation-form select:focus {
+  outline: 2px solid #8bd3bd;
+  border-color: #138b75;
+}
+
+.specialist-page .consultation-form button {
+  background: #087b65;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.specialist-page .consultation-form button:hover {
+  background: #075e50;
+}
+
+.specialist-page .specialist-disclaimer {
+  background: #fff8e8;
+  color: #765d27;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 18px;
+}
+
+@media (max-width: 850px) {
+.specialist-page .specialist-layout {
+    grid-template-columns: 1fr;
+}
+}
+
+@media (max-width: 600px) {
+.specialist-page .specialist-header {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.specialist-page .specialist-stats {
+    grid-template-columns: 1fr;
+}
+
+.specialist-page .specialist-info-grid {
+    grid-template-columns: 1fr;
+}
+
+.specialist-page .consultation-title {
+    align-items: flex-start;
+    flex-direction: column;
+}
+}

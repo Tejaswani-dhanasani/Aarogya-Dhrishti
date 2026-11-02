@@ -1,0 +1,7 @@
+
+CREATE TABLE IF NOT EXISTS public.tbl_patient_notes (
+    note_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    patient_id BIGINT NOT NULL,
+    note_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

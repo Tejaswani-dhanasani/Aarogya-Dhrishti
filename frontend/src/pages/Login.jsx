@@ -1,0 +1,79 @@
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LogIn, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import api, { errMsg } from '../api.js';
+import { useAuth } from '../auth.jsx';
+import { useRoles } from '../hooks.js';
+import { useLang } from '../lang.jsx';
+import AuthShell from '../components/AuthShell.jsx';
+import RoleSelector from '../components/RoleSelector.jsx';
+import StaffNotice from '../components/StaffNotice.jsx';
+
+// Main login page: Health Workers log in here.
+// Higher-level staff roles are sent to the Staff Portal login.
+export default function Login() {
+  const { roles, error: loadError } = useRoles();
+  const { t, lang } = useLang();
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [role, setRole] = useState('HEALTH_WORKER');
+  const [form, setForm] = useState({ user_code: '', password: '' });
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const isStaff = role !== 'HEALTH_WORKER';
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(''); setBusy(true);
+    try {
+      const { data } = await api.post('/auth/login', { role, ...form });
+      login(data);
+      navigate('/dashboard');
+    } catch (err) { setError(errMsg(err)); }
+    setBusy(false);
+  };
+
+  return (
+    <AuthShell>
+      <div className="card p-7 shadow-lg sm:p-8">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-100 text-primary-700"><LogIn /></span>
+        <h1 className="mt-4 text-2xl font-bold">{t('loginTitle')}</h1>
+        <p className="mt-1 text-sm text-neutral-500">{t('loginSub')}</p>
+
+        {location.state?.registered && <p className="mt-4 flex items-center gap-2 rounded-xl bg-success-50 p-3 text-sm text-success-700"><CheckCircle2 size={16} />{lang === 'te' ? 'నమోదు విజయవంతం. దయచేసి లాగిన్ అవ్వండి.' : 'Registered successfully. Please login.'}</p>}
+        {loadError && <p className="mt-4 flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{loadError}</p>}
+        {!roles && !loadError && <p className="mt-6 flex items-center gap-2 text-sm text-neutral-500"><Loader2 className="animate-spin" size={16} />Loading…</p>}
+
+        {roles && (
+          <>
+            <div className="mt-6">
+              <p className="label">{t('selectRole')}</p>
+              <RoleSelector roles={roles} value={role} onChange={setRole} />
+            </div>
+
+            {isStaff ? <StaffNotice mode="login" roleName={role} /> : (
+              <form onSubmit={submit} className="mt-5 space-y-5">
+                <div>
+                  <label className="label" htmlFor="uc">{lang === 'te' ? roles[role].idTe : roles[role].idLabel}</label>
+                  <input id="uc" className="input" required autoComplete="username" value={form.user_code} onChange={(e) => setForm({ ...form, user_code: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="pw">{t('password')}</label>
+                  <div className="relative">
+                    <input id="pw" className="input pr-11" type={show ? 'text' : 'password'} required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                    <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-400 hover:text-neutral-700" aria-label="Show password">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                  </div>
+                </div>
+                {error && <p className="flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{error}</p>}
+                <button className="btn w-full py-3" disabled={busy}>{busy && <Loader2 className="animate-spin" size={16} />}{t('login')}</button>
+              </form>
+            )}
+            <p className="mt-5 text-center text-sm text-neutral-600">{t('noAccount')} <Link to="/register" className="font-semibold text-primary-700 hover:underline">{t('register')}</Link></p>
+          </>
+        )}
+      </div>
+    </AuthShell>
+  );
+}

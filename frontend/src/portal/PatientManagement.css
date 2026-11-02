@@ -1,0 +1,214 @@
+/* Scoped to .patient-page so it cannot affect the rest of the app */
+.patient-page {
+  min-height: 100vh;
+  background: #f4f8f7;
+  font-family: Arial, sans-serif;
+}
+
+.patient-page .patient-header {
+  background: white;
+  height: 75px;
+  padding: 0 6%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 12px #00000008;
+}
+
+.patient-page .patient-brand {
+  color: #087c75;
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.patient-page .patient-home {
+  color: #087c75;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.patient-page .patient-container {
+  max-width: 1250px;
+  margin: auto;
+  padding: 45px 25px;
+}
+
+.patient-page .patient-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.patient-page .patient-title span {
+  color: #078b80;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.patient-page .patient-title h1 {
+  color: #174c4b;
+  margin-bottom: 8px;
+}
+
+.patient-page .patient-title p {
+  color: #718184;
+}
+
+.patient-page .add-patient-btn,
+.patient-page .patient-form-actions button {
+  background: #087f79;
+  color: white;
+  border: none;
+  padding: 13px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.patient-page .patient-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 35px 0;
+}
+
+.patient-page .patient-stat-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #e5eeee;
+}
+
+.patient-page .patient-stat-card span {
+  color: #718184;
+  font-size: 14px;
+}
+
+.patient-page .patient-stat-card h2 {
+  color: #087c75;
+  font-size: 30px;
+}
+
+.patient-page .patient-form,
+.patient-page .patient-table-section {
+  background: white;
+  padding: 30px;
+  border-radius: 13px;
+  margin-bottom: 30px;
+  box-shadow: 0 5px 25px #174c4b08;
+}
+
+.patient-page .patient-form h2,
+.patient-page .patient-table-section h2 {
+  color: #174c4b;
+  margin-top: 0;
+}
+
+.patient-page .patient-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.patient-page .patient-form-grid div {
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-page .patient-form-grid label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #31565a;
+  margin-bottom: 9px;
+}
+
+.patient-page .patient-form-grid input,
+.patient-page .patient-form-grid select {
+  padding: 13px;
+  border: 1px solid #dce8e8;
+  border-radius: 7px;
+  outline: none;
+}
+
+.patient-page .patient-form-grid input:focus,
+.patient-page .patient-form-grid select:focus {
+  border-color: #078b80;
+}
+
+.patient-page .consent-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 25px;
+  color: #31565a;
+  font-size: 14px;
+}
+
+.patient-page .patient-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.patient-page .patient-form-actions .cancel-btn {
+  background: #e7eeee;
+  color: #31565a;
+}
+
+.patient-page .empty-patients {
+  text-align: center;
+  padding: 55px 20px;
+  color: #718184;
+}
+
+.patient-page .empty-patients span {
+  font-size: 40px;
+}
+
+.patient-page .empty-patients h3 {
+  color: #31565a;
+}
+
+.patient-page .table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.patient-page .patient-table-section table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+}
+
+.patient-page .patient-table-section th,
+.patient-page .patient-table-section td {
+  text-align: left;
+  padding: 15px;
+  border-bottom: 1px solid #e7eeee;
+  font-size: 13px;
+}
+
+.patient-page .patient-table-section th {
+  color: #087c75;
+  background: #f0f8f6;
+}
+
+@media (max-width: 650px) {
+.patient-page .patient-stats,
+.patient-page .patient-form-grid {
+    grid-template-columns: 1fr;
+}
+
+.patient-page .patient-container {
+    padding: 25px 15px;
+}
+
+.patient-page .patient-form,
+.patient-page .patient-table-section {
+    padding: 20px;
+}
+}

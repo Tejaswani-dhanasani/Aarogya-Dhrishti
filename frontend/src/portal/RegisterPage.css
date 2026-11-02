@@ -1,0 +1,178 @@
+/* Scoped to .register-page so it cannot affect the rest of the app */
+.register-page {
+  min-height: 100vh;
+  background: #f3f8f7;
+  font-family: Arial, sans-serif;
+}
+
+.register-page .register-header {
+  height: 75px;
+  background: white;
+  padding: 0 7%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 12px #00000008;
+}
+
+.register-page .register-brand {
+  font-weight: bold;
+  color: #087c75;
+  font-size: 20px;
+  text-decoration: none;
+}
+
+.register-page .home-link {
+  color: #087c75;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.register-page .register-container {
+  max-width: 950px;
+  margin: 45px auto;
+  padding: 35px;
+}
+
+.register-page .register-heading {
+  margin-bottom: 30px;
+}
+
+.register-page .register-heading span {
+  color: #078b80;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.register-page .register-heading h1 {
+  color: #174c4b;
+  font-size: 30px;
+}
+
+.register-page .register-heading p {
+  color: #718184;
+  line-height: 1.6;
+}
+
+.register-page .register-form {
+  background: white;
+  padding: 35px;
+  border-radius: 15px;
+  box-shadow: 0 10px 35px #174c4b10;
+}
+
+.register-page .register-form h3 {
+  color: #087c75;
+  font-size: 17px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4eeee;
+  margin: 25px 0;
+}
+
+.register-page .register-form h3:first-child {
+  margin-top: 0;
+}
+
+.register-page .register-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.register-page .register-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.register-page .register-field label {
+  font-size: 13px;
+  color: #31565a;
+  font-weight: bold;
+  margin-bottom: 9px;
+}
+
+.register-page .register-field input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dce8e8;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+}
+
+.register-page .register-field input:focus {
+  border-color: #078b80;
+}
+
+.register-page .register-submit {
+  margin-top: 35px;
+  width: 100%;
+  padding: 15px;
+  background: #087f79;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.register-page .register-submit:hover {
+  background: #075e5a;
+}
+
+.register-page .register-note {
+  color: #718184;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 18px;
+}
+
+@media (max-width: 650px) {
+.register-page .register-container {
+    padding: 20px;
+}
+
+.register-page .register-form {
+    padding: 22px;
+}
+
+.register-page .register-grid {
+    grid-template-columns: 1fr;
+}
+}
+
+.register-page .register-field select {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dce8e8;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+  background: white;
+}
+
+.register-page .register-field select:focus {
+  border-color: #078b80;
+}
+
+.register-page .register-error {
+  background: #fdecec;
+  color: #b42318;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 20px 0 0;
+}
+
+.register-page .register-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-page .register-note a {
+  color: #078b80;
+  font-weight: bold;
+  text-decoration: none;
+}
