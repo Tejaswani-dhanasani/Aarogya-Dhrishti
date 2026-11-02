@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Aarogya Drishti
 
 A React/Vite frontend and Express/PostgreSQL backend for an oral-health screening workflow.
@@ -113,3 +114,7 @@ The additional SQL files in `database/` describe a broader relational schema. Th
 ## Data and deployment warning
 
 This application is a prototype. Use synthetic data for local development. Do not store real patient information until authentication, authorization, privacy, consent, retention, and deployment security have been reviewed for the intended environment.
+=======
+# Aarogya-Dhrishti
+AAROGYA DRISHTI is a Progressive Web App designed to improve access to oral cancer screening and healthcare in tribal communities. It supports patient registration, AI-assisted screening, doctor review, teleconsultation, referrals, and follow-up tracking, connecting patients with healthcare services while supporting timely clinical assessment.
+>>>>>>> c961c3796d37020a431c49a1cec56280f8086c2a
