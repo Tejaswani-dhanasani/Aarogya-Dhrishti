@@ -17,16 +17,78 @@ export default function Register() {
   const navigate = useNavigate();
   const [role, setRole] = useState('HEALTH_WORKER');
   const [error, setError] = useState('');
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm();
+  const [districts, setDistricts] = useState([]);
+  const [mandals, setMandals] = useState([]);
+  const [villages, setVillages] = useState([]);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting }
+  } = useForm();
+  const selectedDistrict = watch('district_id');
+  const selectedMandal = watch('mandal_id');
   const isStaff = role !== 'HEALTH_WORKER';
 
   // The form is rebuilt whenever the profession changes
   useEffect(() => { reset(); setError(''); }, [role, reset]);
 
+  // Load districts
+  useEffect(() => {
+    if (role !== 'HEALTH_WORKER') return;
+
+    api.get('/locations/districts')
+      .then((res) => setDistricts(res.data))
+      .catch((err) => setError(errMsg(err)));
+  }, [role]);
+
+  // Load mandals when district changes
+  useEffect(() => {
+    setMandals([]);
+    setVillages([]);
+
+    setValue('mandal_id', '');
+    setValue('village_id', '');
+
+    if (!selectedDistrict) return;
+
+    api.get(`/locations/mandals/${selectedDistrict}`)
+      .then((res) => setMandals(res.data))
+      .catch((err) => setError(errMsg(err)));
+  }, [selectedDistrict, setValue]);
+
+  // Load villages when mandal changes
+  useEffect(() => {
+    setVillages([]);
+    setValue('village_id', '');
+
+    if (!selectedMandal) return;
+
+    api.get(`/locations/villages/${selectedMandal}`)
+      .then((res) => setVillages(res.data))
+      .catch((err) => setError(errMsg(err)));
+  }, [selectedMandal, setValue]);
+
   const onSubmit = async (data) => {
     setError('');
     try {
-      await api.post('/auth/register', { ...data, role });
+      const district = districts.find((item) => String(item.id) === String(data.district_id));
+      const mandal = mandals.find((item) => String(item.id) === String(data.mandal_id));
+      const village = villages.find((item) => String(item.id) === String(data.village_id));
+      if (!district || !mandal || !village) {
+        setError('Select a valid district, mandal, and village');
+        return;
+      }
+
+      await api.post('/auth/register', {
+        ...data,
+        district: district.name_en,
+        mandal: mandal.name_en,
+        village: village.name_en,
+        role,
+      });
       navigate('/login', { state: { registered: true, role } });
     } catch (e) { setError(errMsg(e)); }
   };
@@ -46,7 +108,9 @@ export default function Register() {
 
             {isStaff ? <StaffNotice mode="register" roleName={role} /> : (
               <form key={role} onSubmit={handleSubmit(onSubmit)} className="mt-6 grid gap-4 sm:grid-cols-2" noValidate>
-                {roles[role].fields.map((f) => (
+                {roles[role].fields
+                  .filter((f) => role !== 'HEALTH_WORKER' || !['district', 'mandal', 'village'].includes(f.name))
+                  .map((f) => (
                   <div key={f.name}>
                     <label className="label">{lang === 'te' ? f.te : f.label}</label>
                     {f.type === 'select' ? (
@@ -69,6 +133,72 @@ export default function Register() {
                     {errors[f.name] && <p className="mt-1 text-xs text-error-600">{errors[f.name].message}</p>}
                   </div>
                 ))}
+                {/* Location dropdowns for Health Worker */}
+                {role === 'HEALTH_WORKER' && (
+                  <>
+                    <div>
+                      <label className="label">District</label>
+                      <select
+                        className="input"
+                        {...register('district_id', { required: 'Select a district' })}
+                      >
+                        <option value="">Select District</option>
+                        {districts.map((district) => (
+                          <option key={district.id} value={district.id}>
+                            {district.name_en}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.district_id && (
+                        <p className="mt-1 text-xs text-error-600">
+                          {errors.district_id.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="label">Mandal</label>
+                      <select
+                        className="input"
+                        disabled={!selectedDistrict}
+                        {...register('mandal_id', { required: 'Select a mandal' })}
+                      >
+                        <option value="">Select Mandal</option>
+                        {mandals.map((mandal) => (
+                          <option key={mandal.id} value={mandal.id}>
+                            {mandal.name_en}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.mandal_id && (
+                        <p className="mt-1 text-xs text-error-600">
+                          {errors.mandal_id.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="label">Village</label>
+                      <select
+                        className="input"
+                        disabled={!selectedMandal}
+                        {...register('village_id', { required: 'Select a village' })}
+                      >
+                        <option value="">Select Village</option>
+                        {villages.map((village) => (
+                          <option key={village.id} value={village.id}>
+                            {village.name_en}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.village_id && (
+                        <p className="mt-1 text-xs text-error-600">
+                          {errors.village_id.message}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
                 {error && <p className="flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700 sm:col-span-2"><AlertCircle size={16} />{error}</p>}
                 <div className="sm:col-span-2">
                   <button className="btn w-full py-3" disabled={isSubmitting}>{isSubmitting && <Loader2 className="animate-spin" size={16} />}{t('register')}</button>

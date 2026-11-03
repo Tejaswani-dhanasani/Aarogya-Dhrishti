@@ -1,0 +1,38 @@
+//to check the patient details in database
+/*SELECT *
+FROM app_patients
+ORDER BY created_at DESC;*/
+
+//to check how many patients are registered
+/*SELECT COUNT(*) AS total_patients
+FROM app_patients;*/
+
+//To see just the patient names and registration dates:
+/*SELECT id, name, created_at
+FROM app_patients
+ORDER BY created_at DESC;*/
+
+//to check the total number of users
+/*SELECT COUNT(*) AS total_users
+FROM app_users;*/
+
+//To view all users:
+/*SELECT id, role, user_code, name, created_at
+FROM app_users
+ORDER BY created_at DESC;*/
+
+//to check the total number of districts and mandals
+/*SELECT COUNT(*) AS districts
+FROM mst_districts;
+
+SELECT COUNT(*) AS mandals
+FROM mst_mandals;*/
+
+/*SELECT
+    d.name_en AS district,
+    m.name_en AS mandal
+FROM mst_mandals m
+JOIN mst_districts d
+    ON d.id = m.district_id
+ORDER BY d.name_en, m.name_en
+LIMIT 20;*/

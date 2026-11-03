@@ -8,7 +8,7 @@ export default function RoleSelector({ roles, value, onChange }) {
   const { lang } = useLang();
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup">
-      {Object.entries(roles).map(([key, r]) => {
+      {Object.entries(roles).filter(([key]) => key !== 'SUPER_ADMIN').map(([key, r]) => {
         const Icon = ICONS[key] || Stethoscope;
         const on = value === key;
         return (
