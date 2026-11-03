@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import express from "express";
+
+import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
@@ -7,35 +7,155 @@ import { ROLES, profileKeys, validateRegistration } from '../roleFields.js';
 import { SECRET, authRequired } from '../middleware/auth.js';
 
 const router = express.Router();
-const publicUser = (u) => ({ id: u.id, role: u.role, user_code: u.user_code, name: u.name, mobile: u.mobile, email: u.email, profile: u.profile });
 
-// Form definition for every role (drives the dynamic registration pages)
-router.get('/role-fields', (_req, res) => res.json(ROLES));
+const publicUser = (u) => ({
+  id: u.id,
+  role: u.role,
+  user_code: u.user_code,
+  name: u.name,
+  mobile: u.mobile,
+  email: u.email,
+  profile: u.profile
+});
 
-// Registration. `allowed` = roles that may use this entry point.
+const HW_ONLY = ['HEALTH_WORKER'];
+
+const STAFF_LOGIN_ROLES = [
+  'MEDICAL_OFFICER',
+  'SPECIALIST',
+  'NAVIGATOR',
+  'DISTRICT_ADMIN',
+  'SUPER_ADMIN'
+];
+
+const STAFF_SELF_REGISTER_ROLES = [
+  'DISTRICT_ADMIN',
+  'MEDICAL_OFFICER',
+  'SPECIALIST',
+  'NAVIGATOR'
+];
+
+const STAFF_DOOR = 'This role must use the Staff Portal';
+const HW_DOOR = 'Health workers cannot use the Staff Portal. Use the main page.';
+
+// Role fields
+router.get('/role-fields', (_req, res) => {
+  res.json(ROLES);
+});
+
+// Registration handler
 const registerHandler = (allowed, wrongDoor) => async (req, res) => {
   const { role } = req.body;
-  if (ROLES[role] && !allowed.includes(role)) return res.status(403).json({ error: wrongDoor });
+
+  if (ROLES[role] && !allowed.includes(role)) {
+    return res.status(403).json({ error: wrongDoor });
+  }
+
   const error = validateRegistration(role, req.body);
-  if (error) return res.status(400).json({ error });
-  const b = req.body;
-  const profile = Object.fromEntries(profileKeys(role).map((k) => [k, String(b[k]).trim()]));
+
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
+  const body = req.body;
+
+  const profile = Object.fromEntries(
+    profileKeys(role).map((key) => [
+      key,
+      String(body[key]).trim()
+    ])
+  );
+
   try {
-    const hash = await bcrypt.hash(b.password, 10);
+    const passwordHash = await bcrypt.hash(body.password, 10);
+
     const { rows } = await pool.query(
-      `INSERT INTO app_users (role, user_code, name, mobile, email, password_hash, profile)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [role, b.user_code.trim(), b.name.trim(), b.mobile.trim(), b.email?.trim() || null, hash, profile]
+      `INSERT INTO app_users
+       (role, user_code, name, mobile, email, password_hash, profile)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [
+        role,
+        body.user_code.trim(),
+        body.name.trim(),
+        body.mobile.trim(),
+        body.email?.trim() || null,
+        passwordHash,
+        profile
+      ]
     );
-    res.status(201).json({ message: 'Registered successfully', user: publicUser(rows[0]) });
-  } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: `${ROLES[role].idLabel} already registered` });
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+
+    return res.status(201).json({
+      message: 'Registered successfully',
+      user: publicUser(rows[0])
+    });
+
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: `${ROLES[role].idLabel} already registered`
+      });
+    }
+
+    console.error(error);
+
+    return res.status(500).json({
+      error: 'Server error'
+    });
   }
 };
 
-// Login. Same rule: each role signs in through its own entry point.
+// Common account verification
+const completeLogin = async (user, password, res) => {
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    return res.status(401).json({
+      error: 'Invalid ID or password'
+    });
+  }
+
+  if (user.approval_status === 'PENDING') {
+    return res.status(403).json({
+      error: 'Your account is waiting for administrator approval.'
+    });
+  }
+
+  if (user.approval_status === 'REJECTED') {
+    return res.status(403).json({
+      error: user.rejection_reason
+        ? `Your registration was rejected: ${user.rejection_reason}`
+        : 'Your registration has been rejected.'
+    });
+  }
+
+  if (user.account_status !== 'ACTIVE') {
+    return res.status(403).json({
+      error: 'Your account is suspended. Contact your administrator.'
+    });
+  }
+
+  if (user.approval_status !== 'APPROVED') {
+    return res.status(403).json({
+      error: 'Your account is not approved.'
+    });
+  }
+
+  const token = jwt.sign(
+    {
+      id: user.id,
+      role: user.role,
+      name: user.name
+    },
+    SECRET,
+    { expiresIn: '8h' }
+  );
+
+  return res.json({
+    token,
+    user: publicUser(user)
+  });
+};
+
+// Existing role-specific login handler
 const loginHandler = (allowed, wrongDoor) => async (req, res) => {
   try {
     const { role, user_code, password } = req.body || {};
@@ -58,56 +178,7 @@ const loginHandler = (allowed, wrongDoor) => async (req, res) => {
       [role, user_code.trim()]
     );
 
-    const user = rows[0];
-
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      return res.status(401).json({
-        error: 'Invalid ID or password'
-      });
-    }
-
-    // Account approval check
-    if (user.approval_status === 'PENDING') {
-      return res.status(403).json({
-        error: 'Your account is waiting for administrator approval.'
-      });
-    }
-
-    if (user.approval_status === 'REJECTED') {
-      return res.status(403).json({
-        error: user.rejection_reason
-          ? `Your registration was rejected: ${user.rejection_reason}`
-          : 'Your registration has been rejected.'
-      });
-    }
-
-    // Account active/suspended check
-    if (user.account_status !== 'ACTIVE') {
-      return res.status(403).json({
-        error: 'Your account is suspended. Contact your administrator.'
-      });
-    }
-
-    if (user.approval_status !== 'APPROVED') {
-      return res.status(403).json({
-        error: 'Your account is not approved.'
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-        name: user.name
-      },
-      SECRET,
-      { expiresIn: '8h' }
-    );
-
-    return res.json({
-      token,
-      user: publicUser(user)
-    });
+    return await completeLogin(rows[0], password, res);
 
   } catch (error) {
     console.error('Login error:', error);
@@ -118,41 +189,78 @@ const loginHandler = (allowed, wrongDoor) => async (req, res) => {
   }
 };
 
-const HW_ONLY = ['HEALTH_WORKER'];
-const STAFF_DOOR = 'This role must use the Staff Portal';
-const HW_DOOR = 'Health workers cannot use the Staff Portal. Use the main page.';
-const STAFF_LOGIN_ROLES = [
-   'MEDICAL_OFFICER',
-   'SPECIALIST',
-   'NAVIGATOR',
-   'DISTRICT_ADMIN',
-   'SUPER_ADMIN'];
-const STAFF_SELF_REGISTER_ROLES = [
-  'DISTRICT_ADMIN',
-  'MEDICAL_OFFICER',
-  'SPECIALIST',
-  'NAVIGATOR'
-];
+// NEW: Common login for all roles
+// SUPER_ADMIN does not need to appear in the frontend dropdown.
+const unifiedLoginHandler = async (req, res) => {
+  try {
+    const { role, user_code, password } = req.body || {};
 
+    if (
+      !role ||
+      !ROLES[role] ||
+      role === 'SUPER_ADMIN' ||
+      !user_code ||
+      !password
+    ) {
+      return res.status(400).json({
+        error: 'Valid role, ID and password are required'
+      });
+    }
 
-// Main site: Health Workers only
+    const { rows } = await pool.query(
+      `SELECT * FROM public.app_users
+       WHERE user_code = $1
+       AND role IN ($2, 'SUPER_ADMIN')
+       ORDER BY CASE WHEN role = $2 THEN 0 ELSE 1 END`,
+      [user_code.trim(), role]
+    );
+
+    // Check the selected role first, then SUPER_ADMIN.
+    let authenticatedUser = null;
+
+    for (const user of rows) {
+      if (await bcrypt.compare(password, user.password_hash)) {
+        authenticatedUser = user;
+        break;
+      }
+    }
+
+    if (!authenticatedUser) {
+      return res.status(401).json({
+        error: 'Invalid ID or password'
+      });
+    }
+
+    // The actual role always comes from the database.
+    return await completeLogin(authenticatedUser, password, res);
+
+  } catch (error) {
+    console.error('Unified login error:', error);
+
+    return res.status(500).json({
+      error: 'Login failed due to server error'
+    });
+  }
+};
+
+// Main site: Health Workers
 router.post('/register', registerHandler(HW_ONLY, STAFF_DOOR));
 router.post('/login', loginHandler(HW_ONLY, STAFF_DOOR));
 
-// Officials receive accounts from their administrator and use this route only to sign in.
+// Common login endpoint
+router.post('/unified-login', unifiedLoginHandler);
 
+// Staff registration
 router.post('/staff/register', async (req, res) => {
   const body = req.body || {};
   const { role } = body;
 
-  // Only approved staff role types can self-register
   if (!STAFF_SELF_REGISTER_ROLES.includes(role)) {
     return res.status(403).json({
       error: 'This role is not allowed to self-register'
     });
   }
 
-  // Validate registration fields
   const validationError = validateRegistration(role, body);
 
   if (validationError) {
@@ -217,89 +325,66 @@ router.post('/staff/register', async (req, res) => {
   }
 });
 
+// Existing staff login endpoint
 router.post('/staff/login', loginHandler(STAFF_LOGIN_ROLES, HW_DOOR));
 
+// Current logged-in user
 router.get('/me', authRequired, async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM app_users WHERE id=$1', [req.user.id]);
-  rows[0] ? res.json(publicUser(rows[0])) : res.status(404).json({ error: 'User not found' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM app_users WHERE id = $1',
+      [req.user.id]
+    );
+
+    return rows[0]
+      ? res.json(publicUser(rows[0]))
+      : res.status(404).json({ error: 'User not found' });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      error: 'Unable to fetch user'
+    });
+  }
 });
 
+// Contact visibility
 router.patch('/contact-visibility', authRequired, async (req, res) => {
   if (!['MEDICAL_OFFICER', 'SPECIALIST'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Public contact preferences are only available to Medical Officers and Specialists' });
+    return res.status(403).json({
+      error: 'Public contact preferences are only available to Medical Officers and Specialists'
+    });
   }
+
   if (typeof req.body?.public_contact !== 'boolean') {
-    return res.status(400).json({ error: 'public_contact must be true or false' });
+    return res.status(400).json({
+      error: 'public_contact must be true or false'
+    });
   }
 
   try {
     const { rows } = await pool.query(
       `UPDATE app_users
-       SET profile = COALESCE(profile, '{}'::jsonb) || jsonb_build_object('public_contact', $2::boolean)
-       WHERE id=$1 AND role=$3
+       SET profile = COALESCE(profile, '{}'::jsonb)
+         || jsonb_build_object('public_contact', $2::boolean)
+       WHERE id = $1 AND role = $3
        RETURNING *`,
-      [req.user.id, req.body.public_contact, req.user.role],
+      [req.user.id, req.body.public_contact, req.user.role]
     );
-    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
-    res.json(publicUser(rows[0]));
+
+    if (!rows[0]) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    return res.json(publicUser(rows[0]));
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Unable to update public contact preference' });
-  }
-});
-
-
-router.post("/super-admin-login", async (req, res) => {
-  try {
-    const { adminId, password } = req.body;
-
-    const storedAdminId = process.env.SUPER_ADMIN_ID;
-    const storedPassword = process.env.SUPER_ADMIN_PASSWORD;
-
-    if (!adminId || !password) {
-      return res.status(400).json({
-        error: "Admin ID and password are required",
-      });
-    }
-
-    if (
-      adminId.trim() !== storedAdminId?.trim() ||
-      password !== storedPassword
-    ) {
-      return res.status(401).json({
-        error: "Invalid ID or password",
-      });
-    }
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is missing from .env");
-    }
-
-    const token = jwt.sign(
-      {
-        id: "super-admin",
-        role: "SUPER_ADMIN",
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || "1d",
-      }
-    );
-
-    return res.status(200).json({
-      message: "Super Admin login successful",
-      token,
-      user: {
-        id: "super-admin",
-        name: process.env.SUPER_ADMIN_NAME || "Super Admin",
-        role: "SUPER_ADMIN",
-      },
-    });
-  } catch (error) {
-    console.error("Super Admin login error:", error.message);
 
     return res.status(500).json({
-      error: "Internal server error",
+      error: 'Unable to update public contact preference'
     });
   }
 });

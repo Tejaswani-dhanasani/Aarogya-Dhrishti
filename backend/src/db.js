@@ -4,6 +4,22 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+async function checkDatabase() {
+  try {
+    const result = await pool.query(`
+      SELECT
+        current_database() AS database,
+        current_user AS username,
+        inet_server_port() AS port
+    `);
+
+    console.log("Connected database details:");
+    console.log(result.rows[0]);
+  } catch (error) {
+    console.error("Database check failed:", error.message);
+  }
+}
+
 const { Pool } = pg;
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));

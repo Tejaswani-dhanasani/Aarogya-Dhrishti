@@ -7,7 +7,6 @@ import api, { errMsg } from "../api.js";
 import "./RegisterPage.css";
 
 const roleNames = {
-  "super-admin": "Super Admin",
   "medical-officer": "Medical Officer",
   specialist: "Specialist",
   "patient-navigator": "Patient Navigator",

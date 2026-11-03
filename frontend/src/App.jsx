@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard.jsx';
 
 // Staff-portal pages (your own design, plain CSS)
 import HomePage from './portal/HomePage.jsx';
-import StaffLogin from './portal/LoginPage.jsx';
 import StaffRegister from './portal/RegisterPage.jsx';
 import PatientManagement from './portal/PatientManagement.jsx';
 import MedicalOfficerReview from './portal/MedicalOfficerReview.jsx';
@@ -42,7 +41,7 @@ export default function App() {
 
       {/* Portal entry and account pages are only shown while signed out. */}
       <Route path="/portal" element={<PortalEntry><HomePage /></PortalEntry>} />
-      <Route path="/login/:role" element={<PortalEntry><StaffLogin /></PortalEntry>} />
+      <Route path="/login/:role" element={<PortalEntry><Login /></PortalEntry>} />
       <Route path="/register/:role" element={<PortalEntry><StaffRegister /></PortalEntry>} />
       <Route path="/overview" element={<RoleOnly allowedRoles={['DISTRICT_ADMIN']}><Navigate to="/dashboard" replace /></RoleOnly>} />
       <Route path="/patients" element={<RoleOnly allowedRoles={['MEDICAL_OFFICER']}><PatientManagement /></RoleOnly>} />

@@ -1,38 +1,44 @@
-import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import api, { errMsg } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useRoles } from '../hooks.js';
 import { useLang } from '../lang.jsx';
 import AuthShell from '../components/AuthShell.jsx';
-import RoleSelector from '../components/RoleSelector.jsx';
-import StaffNotice from '../components/StaffNotice.jsx';
+import { SLUG_TO_ROLE } from '../portal/roles.js';
 
-// Main login page: Health Workers log in here.
-// Higher-level staff roles are sent to the Staff Portal login.
 export default function Login() {
   const { roles, error: loadError } = useRoles();
   const { t, lang } = useLang();
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [role, setRole] = useState('HEALTH_WORKER');
+  const { role: roleSlug } = useParams();
+  const initialRole = SLUG_TO_ROLE[roleSlug] || location.state?.role || 'HEALTH_WORKER';
+  const [role, setRole] = useState(initialRole === 'SUPER_ADMIN' ? 'HEALTH_WORKER' : initialRole);
   const [form, setForm] = useState({ user_code: '', password: '' });
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const isStaff = role !== 'HEALTH_WORKER';
+
+  useEffect(() => {
+    if (roleSlug) setRole(SLUG_TO_ROLE[roleSlug] || 'HEALTH_WORKER');
+  }, [roleSlug]);
 
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setBusy(true);
     try {
-      const { data } = await api.post('/auth/login', { role, ...form });
+      const endpoint = role === 'HEALTH_WORKER' ? '/auth/login' : '/auth/staff/login';
+      const { data } = await api.post(endpoint, { role, ...form });
       login(data);
       navigate('/dashboard');
-    } catch (err) { setError(errMsg(err)); }
-    setBusy(false);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -48,28 +54,40 @@ export default function Login() {
 
         {roles && (
           <>
-            <div className="mt-6">
-              <p className="label">{t('selectRole')}</p>
-              <RoleSelector roles={roles} value={role} onChange={setRole} />
-            </div>
-
-            {isStaff ? <StaffNotice mode="login" roleName={role} /> : (
-              <form onSubmit={submit} className="mt-5 space-y-5">
-                <div>
-                  <label className="label" htmlFor="uc">{lang === 'te' ? roles[role].idTe : roles[role].idLabel}</label>
-                  <input id="uc" className="input" required autoComplete="username" value={form.user_code} onChange={(e) => setForm({ ...form, user_code: e.target.value })} />
+            <form onSubmit={submit} className="mt-6 space-y-5">
+              <div>
+                <label className="label" htmlFor="login-role">{t('selectRole')}</label>
+                <select
+                  id="login-role"
+                  className="input"
+                  value={role}
+                  onChange={(event) => {
+                    setRole(event.target.value);
+                    setForm({ user_code: '', password: '' });
+                    setError('');
+                  }}
+                >
+                  {Object.entries(roles)
+                    .filter(([key]) => key !== 'SUPER_ADMIN')
+                    .map(([key, value]) => (
+                      <option key={key} value={key}>{lang === 'te' ? value.te : value.label}</option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="uc">{lang === 'te' ? roles[role].idTe : roles[role].idLabel}</label>
+                <input id="uc" className="input" required autoComplete="username" value={form.user_code} onChange={(e) => setForm({ ...form, user_code: e.target.value })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="pw">{t('password')}</label>
+                <div className="relative">
+                  <input id="pw" className="input pr-11" type={show ? 'text' : 'password'} required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                  <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-400 hover:text-neutral-700" aria-label="Show password">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
-                <div>
-                  <label className="label" htmlFor="pw">{t('password')}</label>
-                  <div className="relative">
-                    <input id="pw" className="input pr-11" type={show ? 'text' : 'password'} required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                    <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutral-400 hover:text-neutral-700" aria-label="Show password">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
-                  </div>
-                </div>
-                {error && <p className="flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{error}</p>}
-                <button className="btn w-full py-3" disabled={busy}>{busy && <Loader2 className="animate-spin" size={16} />}{t('login')}</button>
-              </form>
-            )}
+              </div>
+              {error && <p className="flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{error}</p>}
+              <button className="btn w-full py-3" disabled={busy}>{busy && <Loader2 className="animate-spin" size={16} />}{t('login')}</button>
+            </form>
             <p className="mt-5 text-center text-sm text-neutral-600">{t('noAccount')} <Link to="/register" className="font-semibold text-primary-700 hover:underline">{t('register')}</Link></p>
           </>
         )}

@@ -5,7 +5,9 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import { pathToFileURL } from 'url';
 
+import pool from "./db.js";
 import { initDb } from './db.js';
+//Routes
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
 import adminRoutes from './routes/admin.js';
@@ -42,6 +44,62 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
 
+// LOCATION APIs
+// GET all districts
+app.get('/api/locations/districts', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name_en
+      FROM mst_districts
+      WHERE is_active = TRUE
+      ORDER BY name_en
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('District API error:', error.message);
+    res.status(500).json({ message: 'Failed to load districts' });
+  }
+});
+
+// GET mandals by district
+app.get('/api/locations/mandals/:districtId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name_en
+       FROM mst_mandals
+       WHERE district_id = $1
+         AND is_active = TRUE
+       ORDER BY name_en`,
+      [req.params.districtId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Mandal API error:', error.message);
+    res.status(500).json({ message: 'Failed to load mandals' });
+  }
+});
+
+// GET villages by mandal
+app.get('/api/locations/villages/:mandalId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name_en
+       FROM mst_villages
+       WHERE mandal_id = $1
+         AND is_active = TRUE
+       ORDER BY name_en`,
+      [req.params.mandalId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Village API error:', error.message);
+    res.status(500).json({ message: 'Failed to load villages' });
+  }
+});
+
 // Error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
@@ -73,5 +131,22 @@ if (
       process.exit(1);
     });
 }
+
+async function checkDatabase() {
+  try {
+    const result = await pool.query(`
+      SELECT
+        current_database() AS database,
+        current_user AS username,
+        inet_server_port() AS port
+    `);
+
+    console.log("Connected database details:");
+    console.log(result.rows[0]);
+  } catch (error) {
+    console.error("Database check failed:", error.message);
+  }
+}
+checkDatabase();
 
 export default app;
