@@ -7,7 +7,7 @@ import { ROLES, profileKeys, validateRegistration } from '../roleFields.js';
 import { SECRET, authRequired } from '../middleware/auth.js';
 
 const router = express.Router();
-const STAFF_LOGIN_ROLES = ['MEDICAL_OFFICER', 'SPECIALIST', 'NAVIGATOR', 'DISTRICT_ADMIN', 'SUPER_ADMIN'];
+const STAFF_LOGIN_ROLES = ['MEDICAL_OFFICER', 'SPECIALIST', 'NAVIGATOR', 'DISTRICT_ADMIN'];
 const publicUser = (u) => ({ id: u.id, role: u.role, user_code: u.user_code, name: u.name, mobile: u.mobile, email: u.email, profile: u.profile });
 
 // Form definition for every role (drives the dynamic registration pages)
@@ -91,60 +91,5 @@ router.patch('/contact-visibility', authRequired, async (req, res) => {
   }
 });
 
-
-router.post("/super-admin-login", async (req, res) => {
-  try {
-    const { adminId, password } = req.body;
-
-    const storedAdminId = process.env.SUPER_ADMIN_ID;
-    const storedPassword = process.env.SUPER_ADMIN_PASSWORD;
-
-    if (!adminId || !password) {
-      return res.status(400).json({
-        error: "Admin ID and password are required",
-      });
-    }
-
-    if (
-      adminId.trim() !== storedAdminId?.trim() ||
-      password !== storedPassword
-    ) {
-      return res.status(401).json({
-        error: "Invalid ID or password",
-      });
-    }
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is missing from .env");
-    }
-
-    const token = jwt.sign(
-      {
-        id: "super-admin",
-        role: "SUPER_ADMIN",
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || "1d",
-      }
-    );
-
-    return res.status(200).json({
-      message: "Super Admin login successful",
-      token,
-      user: {
-        id: "super-admin",
-        name: process.env.SUPER_ADMIN_NAME || "Super Admin",
-        role: "SUPER_ADMIN",
-      },
-    });
-  } catch (error) {
-    console.error("Super Admin login error:", error.message);
-
-    return res.status(500).json({
-      error: "Internal server error",
-    });
-  }
-});
 
 export default router;

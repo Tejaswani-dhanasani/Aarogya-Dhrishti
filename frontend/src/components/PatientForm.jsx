@@ -10,16 +10,10 @@ const HABITS = ['Tobacco chewing', 'Smoking', 'Gutkha', 'Areca nut / betel quid'
 const SYMPTOMS = ['Non-healing mouth ulcer', 'White patch', 'Red patch', 'Pain in mouth', 'Difficulty swallowing', 'Limited mouth opening', 'Neck swelling'];
 const STEPS = [['Patient', User], ['Symptoms', Stethoscope], ['Habits', Cigarette], ['Photo & consent', ImagePlus]];
 const STEP_FIELDS = [['name', 'mobile', 'age', 'gender', 'abha_number'], [], [], ['consent']];
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 
 async function checkPhotoQuality(file) {
   const image = await createImageBitmap(file);
   try {
-    const warnings = [];
-    if (image.width < 480 || image.height < 360) {
-      warnings.push('The image resolution is low. Move closer and capture a higher-resolution image.');
-    }
-
     const scale = Math.min(1, 512 / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(3, Math.round(image.width * scale));
@@ -32,19 +26,11 @@ async function checkPhotoQuality(file) {
     const width = canvas.width;
     const height = canvas.height;
     const grayscale = new Float32Array(width * height);
-    let brightnessTotal = 0;
 
     for (let pixel = 0; pixel < grayscale.length; pixel += 1) {
       const offset = pixel * 4;
-      const gray = 0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2];
-      grayscale[pixel] = gray;
-      brightnessTotal += gray;
+      grayscale[pixel] = 0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2];
     }
-
-    const brightness = brightnessTotal / grayscale.length;
-    let squaredDifferenceTotal = 0;
-    for (const gray of grayscale) squaredDifferenceTotal += (gray - brightness) ** 2;
-    const contrast = Math.sqrt(squaredDifferenceTotal / grayscale.length);
 
     let laplacianTotal = 0;
     let laplacianSquaredTotal = 0;
@@ -63,12 +49,7 @@ async function checkPhotoQuality(file) {
       }
     }
     const sharpness = laplacianSquaredTotal / samples - (laplacianTotal / samples) ** 2;
-
-    if (sharpness < 45) warnings.push('The image looks blurry. Hold the camera steady, focus on the affected area, and retake it.');
-    if (brightness < 35) warnings.push('The image is too dark. Improve the lighting and retake it.');
-    if (brightness > 225) warnings.push('The image is overexposed. Reduce glare and retake it.');
-    if (contrast < 18) warnings.push('The image has very low contrast. Improve the lighting and retake it.');
-    return warnings;
+    return sharpness < 45;
   } finally {
     image.close();
   }
@@ -142,18 +123,15 @@ export default function PatientForm({ onSaved }) {
     previewUrlRef.current = nextPreview;
     setFile(nextFile);
     setPreview(nextPreview);
-    setPhotoQuality(nextFile ? { status: 'checking', warnings: [] } : null);
+    setPhotoQuality(nextFile ? { status: 'checking' } : null);
     if (nextFile) {
-      checkPhotoQuality(nextFile).then((warnings) => {
+      checkPhotoQuality(nextFile).then((isBlurry) => {
         if (photoCheckIdRef.current === checkId) {
-          setPhotoQuality({ status: warnings.length ? 'warning' : 'good', warnings });
+          setPhotoQuality({ status: isBlurry ? 'blurry' : 'clear' });
         }
       }).catch(() => {
         if (photoCheckIdRef.current === checkId) {
-          setPhotoQuality({
-            status: 'warning',
-            warnings: ['This image could not be checked. Please choose or capture another image.'],
-          });
+          setPhotoQuality({ status: 'error' });
         }
       });
     }
@@ -214,10 +192,6 @@ export default function PatientForm({ onSaved }) {
     canvas.toBlob((blob) => {
       if (!blob) {
         setCameraError('The image could not be captured. Please try again.');
-        return;
-      }
-      if (blob.size > MAX_PHOTO_SIZE) {
-        setCameraError('The captured image is larger than 5 MB. Try again in better lighting or use a smaller image.');
         return;
       }
       setPhoto(new File([blob], `patient-photo-${Date.now()}.jpg`, { type: 'image/jpeg' }));
@@ -380,7 +354,7 @@ export default function PatientForm({ onSaved }) {
                   </span>
                   <div className="flex-1 text-sm text-neutral-600">
                     <b className="block text-neutral-800">{preview ? 'Photo ready' : 'Capture or choose a photo'}</b>
-                    <p className="mt-1">Use the camera for a live image or select an existing photo. Max 5 MB.</p>
+                    <p className="mt-1">Use the camera for a live image or select an existing photo.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" className="btn" onClick={startCamera}><Video size={16} />Open camera</button>
                       <label className="btn-outline cursor-pointer">
@@ -392,8 +366,6 @@ export default function PatientForm({ onSaved }) {
                             if (!selected) return;
                             if (!selected.type.startsWith('image/')) {
                               setCameraError('Please choose an image file.');
-                            } else if (selected.size > MAX_PHOTO_SIZE) {
-                              setCameraError('Photo must be 5 MB or smaller.');
                             } else {
                               setPhoto(selected);
                               setCameraError('');
@@ -407,20 +379,20 @@ export default function PatientForm({ onSaved }) {
               )}
               {cameraError && <p role="alert" className="mt-2 flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{cameraError}</p>}
               {photoQuality?.status === 'checking' && (
-                <p role="status" className="mt-3 flex items-center gap-2 text-sm text-neutral-600"><Loader2 className="animate-spin" size={16} />Checking image focus, lighting, and resolution on this device…</p>
+                <p role="status" className="mt-3 flex items-center gap-2 text-sm text-neutral-600"><Loader2 className="animate-spin" size={16} />Checking image clarity on this device…</p>
               )}
-              {photoQuality?.status === 'good' && (
-                <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-success-50 p-3 text-sm text-success-700"><CheckCircle2 size={16} />Image quality check passed. A clinician must still review the image.</p>
+              {photoQuality?.status === 'clear' && (
+                <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-success-50 p-3 text-sm text-success-700"><CheckCircle2 size={16} />The image appears clear. A clinician must still review it.</p>
               )}
-              {photoQuality?.status === 'warning' && (
-                <div role="alert" className="mt-3 rounded-xl bg-warning-50 p-3 text-sm text-warning-800">
-                  <p className="flex items-center gap-2 font-semibold"><AlertCircle size={16} />Image quality may be unsuitable. Please retake or choose another image.</p>
-                  <ul className="mt-2 list-inside list-disc space-y-1">
-                    {photoQuality.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-                  </ul>
-                </div>
+              {(photoQuality?.status === 'blurry' || photoQuality?.status === 'error') && (
+                <p role="alert" className="mt-3 flex items-center gap-2 rounded-xl bg-warning-50 p-3 text-sm text-warning-800">
+                  <AlertCircle size={16} />
+                  {photoQuality.status === 'blurry'
+                    ? 'The image appears blurry. Hold the camera steady, focus on the affected area, and retake it.'
+                    : 'This image could not be checked. Please choose or capture another image.'}
+                </p>
               )}
-              <p className="mt-2 text-xs text-neutral-500">Automatic quality screening checks focus, lighting, contrast, and resolution on this device. It cannot confirm that the affected area is correctly framed, detect disease, or replace clinical review.</p>
+              <p className="mt-2 text-xs text-neutral-500">Automatic screening checks only whether the image appears blurry or clear. It cannot confirm that the affected area is correctly framed, detect disease, or replace clinical review.</p>
             </div>
             <div className="rounded-2xl bg-neutral-50 p-4 ring-1 ring-neutral-200">
               <label className="flex items-start gap-3 text-sm">
@@ -437,7 +409,7 @@ export default function PatientForm({ onSaved }) {
         <button type="button" className="btn-ghost" onClick={() => setStep((s) => Math.max(s - 1, 0))} disabled={step === 0}><ArrowLeft size={16} />{t('back')}</button>
         {step < 3
           ? <button type="submit" className="btn">{t('next')}<ArrowRight size={16} /></button>
-          : <button type="submit" className="btn" disabled={isSubmitting || photoQuality?.status === 'checking' || photoQuality?.status === 'warning'}>{isSubmitting && <Loader2 className="animate-spin" size={16} />}{t('save')}</button>}
+          : <button type="submit" className="btn" disabled={isSubmitting || photoQuality?.status === 'checking' || photoQuality?.status === 'blurry' || photoQuality?.status === 'error'}>{isSubmitting && <Loader2 className="animate-spin" size={16} />}{t('save')}</button>}
       </div>
     </form>
   );

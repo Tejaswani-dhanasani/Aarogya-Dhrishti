@@ -43,11 +43,6 @@ const features = [
 
 const staffRoles = [
   {
-    title: "Super Admin",
-    description: "Control platform administration and district administrator accounts.",
-    role: "super-admin"
-  },
-  {
     title: "Medical Officer",
     description: "Review patient screenings and manage clinical decisions.",
     role: "medical-officer"

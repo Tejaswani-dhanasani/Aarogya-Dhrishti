@@ -54,9 +54,8 @@ Open <http://localhost:5173>. `VITE_API_URL` in `frontend/.env` should be the ba
 ## Connected workflows
 
 - Health workers register/login from `/register` and `/login`.
-- Officials do not self-register. They sign in from `/login/:role`. Supported role slugs: `super-admin`, `district-admin`, `medical-officer`, `specialist`, and `patient-navigator`.
-- The first Super Admin is bootstrapped manually after the backend has started once and created its tables. Run `npm run seed:super-admin` from `backend/` in an interactive terminal, enter the requested details (the password is hidden), then execute the generated SQL in the configured PostgreSQL database. Sign in at `/login/super-admin`.
-- Super Admins control the overall official account list and create District Admin accounts from `/staff-management`. District Admins create Medical Officer, Specialist, and Navigator accounts there; a District Admin can only create officials assigned to their own district. Officials then sign in using the account created for them.
+- Officials do not self-register. They select their role from the login page and sign in using the account created for them. `/login/:role` links preselect a role in the same login form.
+- District Admins create Medical Officer, Specialist, and Navigator accounts from `/staff-management`; a District Admin can only create officials assigned to their own district.
 - Medical Officers and Specialists can opt in or withdraw from public contact listing in their dashboard profile. The public Contact Us page shows only officials who opted in; their name, role, district, specialization, phone, and email are returned by `GET /api/contact/officials`. Contact details remain private by default.
 - Each authenticated role gets its own dashboard workspace and role-specific navigation. Health Workers see only their own patients; Medical Officers can access patient records and the clinical-review screen; Specialists can access consultation; Navigators can access follow-up; District Administrators can access reports. Direct navigation to another role's screens returns the user to their own dashboard.
 - `GET /api/patients` is restricted to Health Workers and Medical Officers. Health workers see only their own records; medical officers can access all records for clinical review. Other roles cannot retrieve patient records through this endpoint.
@@ -73,7 +72,7 @@ All API routes use the `/api` prefix. For protected endpoints, send the JWT retu
 | `GET` | `/api/auth/role-fields` | Public |
 | `POST` | `/api/auth/register`, `/api/auth/login` | Health workers |
 | `POST` | `/api/auth/staff/register` | Disabled; returns `403` because officials are provisioned by administrators |
-| `POST` | `/api/auth/staff/login` | Official roles, including Super Admin |
+| `POST` | `/api/auth/staff/login` | District Admin, Medical Officer, Specialist, or Navigator |
 | `GET` | `/api/auth/me` | Authenticated users |
 | `PATCH` | `/api/auth/contact-visibility` | Authenticated Medical Officers and Specialists; JSON `{ "public_contact": true }` or `false` |
 | `GET` | `/api/patients` | Health Workers and Medical Officers |
@@ -87,12 +86,11 @@ All API routes use the `/api` prefix. For protected endpoints, send the JWT retu
 | Route | Purpose | Data |
 |---|---|---|
 | `/` | Landing page | Static content |
-| `/login`, `/register` | Health Worker authentication | Backend |
+| `/login`, `/register` | Role-based login and Health Worker registration | Backend |
 | `/dashboard` | Main health-worker/staff dashboard | Backend |
 | `/portal` | Staff Portal landing page | Static content |
-| `/login/:role` | Official login | Backend |
 | `/register/:role` | Explains that officials must be provisioned by an administrator | No self-registration |
-| `/staff-management` | Admin account provisioning | Super Admin and District Admin only |
+| `/staff-management` | Admin account provisioning | District Admin; Super Admin for existing authenticated sessions |
 | `/patients` | Staff patient records | Backend, read-only |
 | `/medical-officer/review` | Medical Officer review | Role-restricted; demo records, not backed by API workflows |
 | `/specialist/consultation` | Specialist consultation | Role-restricted; demo referrals, not backed by API workflows |
