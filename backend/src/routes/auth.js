@@ -7,7 +7,6 @@ import { ROLES, profileKeys, validateRegistration } from '../roleFields.js';
 import { SECRET, authRequired } from '../middleware/auth.js';
 
 const router = express.Router();
-const STAFF_LOGIN_ROLES = ['MEDICAL_OFFICER', 'SPECIALIST', 'NAVIGATOR', 'DISTRICT_ADMIN', 'SUPER_ADMIN'];
 const publicUser = (u) => ({ id: u.id, role: u.role, user_code: u.user_code, name: u.name, mobile: u.mobile, email: u.email, profile: u.profile });
 
 // Form definition for every role (drives the dynamic registration pages)
@@ -38,28 +37,186 @@ const registerHandler = (allowed, wrongDoor) => async (req, res) => {
 
 // Login. Same rule: each role signs in through its own entry point.
 const loginHandler = (allowed, wrongDoor) => async (req, res) => {
-  const { role, user_code, password } = req.body;
-  if (!ROLES[role] || !user_code || !password) return res.status(400).json({ error: 'Role, ID and password are required' });
-  if (!allowed.includes(role)) return res.status(403).json({ error: wrongDoor });
-  const { rows } = await pool.query('SELECT * FROM app_users WHERE role=$1 AND user_code=$2', [role, user_code.trim()]);
-  const u = rows[0];
-  if (!u || !(await bcrypt.compare(password, u.password_hash))) return res.status(401).json({ error: 'Invalid ID or password' });
-  const token = jwt.sign({ id: u.id, role: u.role, name: u.name }, SECRET, { expiresIn: '8h' });
-  res.json({ token, user: publicUser(u) });
+  try {
+    const { role, user_code, password } = req.body || {};
+
+    if (!ROLES[role] || !user_code || !password) {
+      return res.status(400).json({
+        error: 'Role, ID and password are required'
+      });
+    }
+
+    if (!allowed.includes(role)) {
+      return res.status(403).json({
+        error: wrongDoor
+      });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT * FROM public.app_users
+       WHERE role = $1 AND user_code = $2`,
+      [role, user_code.trim()]
+    );
+
+    const user = rows[0];
+
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({
+        error: 'Invalid ID or password'
+      });
+    }
+
+    // Account approval check
+    if (user.approval_status === 'PENDING') {
+      return res.status(403).json({
+        error: 'Your account is waiting for administrator approval.'
+      });
+    }
+
+    if (user.approval_status === 'REJECTED') {
+      return res.status(403).json({
+        error: user.rejection_reason
+          ? `Your registration was rejected: ${user.rejection_reason}`
+          : 'Your registration has been rejected.'
+      });
+    }
+
+    // Account active/suspended check
+    if (user.account_status !== 'ACTIVE') {
+      return res.status(403).json({
+        error: 'Your account is suspended. Contact your administrator.'
+      });
+    }
+
+    if (user.approval_status !== 'APPROVED') {
+      return res.status(403).json({
+        error: 'Your account is not approved.'
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        role: user.role,
+        name: user.name
+      },
+      SECRET,
+      { expiresIn: '8h' }
+    );
+
+    return res.json({
+      token,
+      user: publicUser(user)
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+
+    return res.status(500).json({
+      error: 'Login failed due to server error'
+    });
+  }
 };
 
 const HW_ONLY = ['HEALTH_WORKER'];
 const STAFF_DOOR = 'This role must use the Staff Portal';
 const HW_DOOR = 'Health workers cannot use the Staff Portal. Use the main page.';
+const STAFF_LOGIN_ROLES = [
+   'MEDICAL_OFFICER',
+   'SPECIALIST',
+   'NAVIGATOR',
+   'DISTRICT_ADMIN',
+   'SUPER_ADMIN'];
+const STAFF_SELF_REGISTER_ROLES = [
+  'DISTRICT_ADMIN',
+  'MEDICAL_OFFICER',
+  'SPECIALIST',
+  'NAVIGATOR'
+];
+
 
 // Main site: Health Workers only
 router.post('/register', registerHandler(HW_ONLY, STAFF_DOOR));
 router.post('/login', loginHandler(HW_ONLY, STAFF_DOOR));
 
 // Officials receive accounts from their administrator and use this route only to sign in.
-router.post('/staff/register', (_req, res) =>
-  res.status(403).json({ error: 'Official accounts can only be created by an authorized administrator' })
-);
+
+router.post('/staff/register', async (req, res) => {
+  const body = req.body || {};
+  const { role } = body;
+
+  // Only approved staff role types can self-register
+  if (!STAFF_SELF_REGISTER_ROLES.includes(role)) {
+    return res.status(403).json({
+      error: 'This role is not allowed to self-register'
+    });
+  }
+
+  // Validate registration fields
+  const validationError = validateRegistration(role, body);
+
+  if (validationError) {
+    return res.status(400).json({
+      error: validationError
+    });
+  }
+
+  try {
+    const profile = Object.fromEntries(
+      profileKeys(role).map((key) => [
+        key,
+        String(body[key]).trim()
+      ])
+    );
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+
+    const { rows } = await pool.query(
+      `INSERT INTO app_users (
+        role,
+        user_code,
+        name,
+        mobile,
+        email,
+        password_hash,
+        profile,
+        approval_status,
+        account_status
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING','ACTIVE')
+      RETURNING *`,
+      [
+        role,
+        body.user_code.trim(),
+        body.name.trim(),
+        body.mobile.trim(),
+        body.email?.trim() || null,
+        passwordHash,
+        profile
+      ]
+    );
+
+    return res.status(201).json({
+      message: 'Registration successful. Your account is waiting for administrator approval.',
+      approval_status: rows[0].approval_status,
+      user: publicUser(rows[0])
+    });
+
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({
+        error: `${ROLES[role].idLabel} already registered`
+      });
+    }
+
+    console.error(error);
+
+    return res.status(500).json({
+      error: 'Unable to complete registration'
+    });
+  }
+});
+
 router.post('/staff/login', loginHandler(STAFF_LOGIN_ROLES, HW_DOOR));
 
 router.get('/me', authRequired, async (req, res) => {
