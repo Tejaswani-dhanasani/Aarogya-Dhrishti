@@ -176,3 +176,31 @@
   font-weight: bold;
   text-decoration: none;
 }
+
+.register-form button[type="submit"] {
+  width: 100%;
+  padding: 14px 20px;
+  margin-top: 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #087f8c, #075e70);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 5px 14px rgba(8, 127, 140, 0.2);
+}
+
+.register-form button[type="submit"]:hover {
+  background: linear-gradient(135deg, #066b78, #064d5b);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(8, 127, 140, 0.3);
+}
+
+.register-form button[type="submit"]:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
