@@ -13,6 +13,7 @@ import MedicalOfficerReview from './portal/MedicalOfficerReview.jsx';
 import SpecialistConsultation from './portal/SpecialistConsultation.jsx';
 import OfficialAccountManager from './portal/OfficialAccountManager.jsx';
 import ComingSoon from './portal/ComingSoon.jsx';
+import ConsultationPage from "./pages/ConsultationPage";
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -50,7 +51,10 @@ export default function App() {
       <Route path="/staff-management" element={<RoleOnly allowedRoles={['SUPER_ADMIN', 'DISTRICT_ADMIN']}><OfficialAccountManager /></RoleOnly>} />
       <Route path="/follow-up" element={<RoleOnly allowedRoles={['NAVIGATOR']}><ComingSoon title="Patient Follow-up" /></RoleOnly>} />
       <Route path="/reports" element={<RoleOnly allowedRoles={['DISTRICT_ADMIN']}><ComingSoon title="Reports & Analytics" /></RoleOnly>} />
-
+      <Route
+  path="/consultation"
+  element={<ConsultationPage />}
+/>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

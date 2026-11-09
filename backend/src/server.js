@@ -12,7 +12,7 @@ import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
 import adminRoutes from './routes/admin.js';
 import contactRoutes from './routes/contact.js';
-
+import consultationRoutes from "./routes/consultations.js";
 dotenv.config();
 
 fs.mkdirSync('uploads', { recursive: true });
@@ -25,6 +25,7 @@ app.use(cors({
 
 app.use(express.json());
 
+app.use("/api/consultations", consultationRoutes);
 app.use('/uploads', express.static('uploads'));
 
 app.get("/", (_req, res) => {
