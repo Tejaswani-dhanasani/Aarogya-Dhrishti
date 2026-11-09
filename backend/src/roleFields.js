@@ -70,7 +70,7 @@ export function validateRegistration(role, body) {
     const v = String(body[fld.name] ?? '').trim();
     if (!v) return `${fld.label} is required`;
     if (fld.type === 'tel' && !/^\d{10}$/.test(v)) return 'Mobile number must be 10 digits';
-    if (fld.type === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Enter a valid email';
+    if (fld.type === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) {return 'Enter a valid email';}
     if (fld.type === 'select' && !fld.options.includes(v)) return `Choose a valid ${fld.label}`;
   }
   if (body.password.length < 6) return 'Password must be at least 6 characters';

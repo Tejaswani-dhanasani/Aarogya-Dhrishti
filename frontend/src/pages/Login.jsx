@@ -41,6 +41,13 @@ export default function Login() {
     }
   };
 
+    navigate('/dashboard');
+  } catch (err) {
+    setError(errMsg(err));
+  } finally {
+    setBusy(false);
+  }
+};
   return (
     <AuthShell>
       <div className="card p-7 shadow-lg sm:p-8">
