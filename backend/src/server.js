@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
 import adminRoutes from './routes/admin.js';
 import contactRoutes from './routes/contact.js';
+import followupRoutes from './routes/followups.js';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/followups', followupRoutes);
 
 // LOCATION APIs
 // GET all districts

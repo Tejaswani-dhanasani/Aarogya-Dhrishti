@@ -90,11 +90,40 @@ export async function initDb() {
       village TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS public.app_patient_followups (
+    id BIGSERIAL PRIMARY KEY,
+
+    patient_id BIGINT NOT NULL
+        REFERENCES public.app_patients(id)
+        ON DELETE CASCADE,
+
+    navigator_id BIGINT NOT NULL
+        REFERENCES public.app_users(id),
+
+    followup_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+    health_status TEXT NOT NULL,
+
+    remarks TEXT,
+
+    next_followup_date DATE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_patient_followups_patient
+  ON public.app_patient_followups(patient_id);
+
+  CREATE INDEX IF NOT EXISTS idx_patient_followups_navigator
+  ON public.app_patient_followups(navigator_id);
+
 
     ALTER TABLE public.app_patients
       ADD COLUMN IF NOT EXISTS abha_number TEXT,
       ADD COLUMN IF NOT EXISTS village TEXT;
   `);
+
+
 
   console.log("PostgreSQL connected and application tables are ready.");
 }

@@ -13,6 +13,7 @@ import MedicalOfficerReview from './portal/MedicalOfficerReview.jsx';
 import SpecialistConsultation from './portal/SpecialistConsultation.jsx';
 import OfficialAccountManager from './portal/OfficialAccountManager.jsx';
 import ComingSoon from './portal/ComingSoon.jsx';
+import FollowUp from './pages/FollowUp.jsx';
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ export default function App() {
       <Route path="/medical-officer/review" element={<RoleOnly allowedRoles={['MEDICAL_OFFICER']}><MedicalOfficerReview /></RoleOnly>} />
       <Route path="/specialist/consultation" element={<RoleOnly allowedRoles={['SPECIALIST']}><SpecialistConsultation /></RoleOnly>} />
       <Route path="/staff-management" element={<RoleOnly allowedRoles={['SUPER_ADMIN', 'DISTRICT_ADMIN']}><OfficialAccountManager /></RoleOnly>} />
-      <Route path="/follow-up" element={<RoleOnly allowedRoles={['NAVIGATOR']}><ComingSoon title="Patient Follow-up" /></RoleOnly>} />
+      <Route path="/follow-up" element={<RoleOnly allowedRoles={['NAVIGATOR']}><FollowUp /></RoleOnly>}/>
       <Route path="/reports" element={<RoleOnly allowedRoles={['DISTRICT_ADMIN']}><ComingSoon title="Reports & Analytics" /></RoleOnly>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

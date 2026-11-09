@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -42,6 +43,7 @@ export default function OfficialAccountManager() {
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Load officials from backend
   const loadOfficials = useCallback(async () => {
     setLoadingOfficials(true);
     setLoadError('');
@@ -60,6 +62,28 @@ export default function OfficialAccountManager() {
     loadOfficials();
   }, [loadOfficials]);
 
+  // Filter accounts according to logged-in admin role
+  const managedOfficials = officials.filter((official) => {
+    if (isSuperAdmin) {
+      return official.role === 'DISTRICT_ADMIN';
+    }
+
+    return [
+      'MEDICAL_OFFICER',
+      'SPECIALIST',
+      'NAVIGATOR',
+    ].includes(official.role);
+  });
+
+  const pendingCount = managedOfficials.filter(
+    (official) => official.approval_status === 'PENDING'
+  ).length;
+
+  const approvedCount = managedOfficials.filter(
+    (official) => official.approval_status === 'APPROVED'
+  ).length;
+
+  // Approve account
   const handleApprove = async (official) => {
     const confirmed = window.confirm(
       `Approve ${official.name}'s account?`
@@ -72,9 +96,10 @@ export default function OfficialAccountManager() {
     setSuccess('');
 
     try {
-      await api.patch(`/admin/officials/${official.id}/approval`, {
-        status: 'APPROVED',
-      });
+      await api.patch(
+        `/admin/officials/${official.id}/approval`,
+        { status: 'APPROVED' }
+      );
 
       setSuccess(`${official.name}'s account has been approved.`);
       await loadOfficials();
@@ -85,6 +110,7 @@ export default function OfficialAccountManager() {
     }
   };
 
+  // Reject account
   const handleReject = async (official) => {
     const reason = rejectionReason.trim();
 
@@ -98,12 +124,18 @@ export default function OfficialAccountManager() {
     setSuccess('');
 
     try {
-      await api.patch(`/admin/officials/${official.id}/approval`, {
-        status: 'REJECTED',
-        rejection_reason: reason,
-      });
+      await api.patch(
+        `/admin/officials/${official.id}/approval`,
+        {
+          status: 'REJECTED',
+          rejection_reason: reason,
+        }
+      );
 
-      setSuccess(`${official.name}'s registration has been rejected.`);
+      setSuccess(
+        `${official.name}'s registration has been rejected.`
+      );
+
       setRejectingId(null);
       setRejectionReason('');
 
@@ -128,10 +160,6 @@ export default function OfficialAccountManager() {
     setActionError('');
   };
 
-  const pendingCount = officials.filter(
-    (official) => official.approval_status === 'PENDING'
-  ).length;
-
   const getStatusClass = (status) => {
     if (status === 'APPROVED') {
       return 'bg-success-50 text-success-700';
@@ -146,6 +174,8 @@ export default function OfficialAccountManager() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
+
+      {/* Header */}
       <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-4 md:px-8">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-primary-700">
@@ -163,6 +193,8 @@ export default function OfficialAccountManager() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+
+        {/* Summary */}
         <section className="card">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -176,7 +208,9 @@ export default function OfficialAccountManager() {
                 </h2>
 
                 <p className="text-sm text-neutral-500">
-                  Review and approve official registrations.
+                  {isSuperAdmin
+                    ? 'Review and approve District Admin registrations.'
+                    : 'Review and approve Medical Officer, Specialist and Navigator registrations.'}
                 </p>
               </div>
             </div>
@@ -196,12 +230,13 @@ export default function OfficialAccountManager() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
+
             <div className="rounded-xl bg-neutral-50 p-4">
               <p className="text-sm text-neutral-500">
                 Total Accounts
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {officials.length}
+                {managedOfficials.length}
               </p>
             </div>
 
@@ -219,17 +254,14 @@ export default function OfficialAccountManager() {
                 Approved
               </p>
               <p className="mt-1 text-2xl font-bold text-success-700">
-                {
-                  officials.filter(
-                    (official) =>
-                      official.approval_status === 'APPROVED'
-                  ).length
-                }
+                {approvedCount}
               </p>
             </div>
+
           </div>
         </section>
 
+        {/* Error Message */}
         {actionError && (
           <div
             role="alert"
@@ -240,6 +272,7 @@ export default function OfficialAccountManager() {
           </div>
         )}
 
+        {/* Success Message */}
         {success && (
           <div
             role="status"
@@ -250,7 +283,9 @@ export default function OfficialAccountManager() {
           </div>
         )}
 
+        {/* Officials List */}
         <section className="card">
+
           <div className="mb-5 flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-secondary-100 text-secondary-700">
               <Users />
@@ -262,8 +297,8 @@ export default function OfficialAccountManager() {
               </h2>
 
               <p className="text-sm text-neutral-500">
-                {officials.length} account
-                {officials.length === 1 ? '' : 's'}
+                {managedOfficials.length} account
+                {managedOfficials.length === 1 ? '' : 's'}
               </p>
             </div>
           </div>
@@ -274,7 +309,7 @@ export default function OfficialAccountManager() {
               className="flex items-center gap-2 text-sm text-neutral-500"
             >
               <Loader2 size={16} className="animate-spin" />
-              Loading officials…
+              Loading officials...
             </p>
           ) : loadError ? (
             <div role="alert" className="space-y-3">
@@ -290,13 +325,14 @@ export default function OfficialAccountManager() {
                 Try again
               </button>
             </div>
-          ) : officials.length === 0 ? (
+          ) : managedOfficials.length === 0 ? (
             <p className="rounded-xl bg-neutral-50 p-5 text-sm text-neutral-500">
               No registration requests found.
             </p>
           ) : (
             <div className="space-y-4">
-              {officials.map((official) => {
+
+              {managedOfficials.map((official) => {
                 const isPending =
                   official.approval_status === 'PENDING';
 
@@ -307,15 +343,16 @@ export default function OfficialAccountManager() {
                     key={official.id}
                     className="rounded-xl border border-neutral-200 p-4"
                   >
+
                     <div className="flex flex-wrap items-start justify-between gap-3">
+
                       <div>
                         <h3 className="font-semibold">
                           {official.name}
                         </h3>
 
                         <p className="text-sm text-neutral-500">
-                          {ROLE_LABELS[official.role] ||
-                            official.role}
+                          {ROLE_LABELS[official.role] || official.role}
                           {' · '}
                           {official.user_code}
                         </p>
@@ -339,12 +376,13 @@ export default function OfficialAccountManager() {
                           official.approval_status
                         )}`}
                       >
-                        {STATUS_LABELS[
-                          official.approval_status
-                        ] || official.approval_status}
+                        {STATUS_LABELS[official.approval_status] ||
+                          official.approval_status}
                       </span>
+
                     </div>
 
+                    {/* Rejection Reason */}
                     {official.approval_status === 'REJECTED' &&
                       official.rejection_reason && (
                         <p className="mt-3 rounded-lg bg-error-50 p-3 text-sm text-error-700">
@@ -353,6 +391,7 @@ export default function OfficialAccountManager() {
                         </p>
                       )}
 
+                    {/* Approval Date */}
                     {official.approval_status === 'APPROVED' && (
                       <p className="mt-3 text-xs text-success-700">
                         Approved on:{' '}
@@ -364,10 +403,13 @@ export default function OfficialAccountManager() {
                       </p>
                     )}
 
+                    {/* Approve / Reject Actions */}
                     {isPending && (
                       <div className="mt-4 space-y-3">
+
                         {rejectingId === official.id ? (
                           <div className="space-y-3 rounded-xl bg-neutral-50 p-3">
+
                             <label
                               className="label"
                               htmlFor={`reject-reason-${official.id}`}
@@ -381,14 +423,13 @@ export default function OfficialAccountManager() {
                               placeholder="Enter the reason for rejecting this registration..."
                               value={rejectionReason}
                               onChange={(event) =>
-                                setRejectionReason(
-                                  event.target.value
-                                )
+                                setRejectionReason(event.target.value)
                               }
                               required
                             />
 
                             <div className="flex flex-wrap gap-2">
+
                               <button
                                 type="button"
                                 className="btn"
@@ -396,9 +437,7 @@ export default function OfficialAccountManager() {
                                   isBusy ||
                                   !rejectionReason.trim()
                                 }
-                                onClick={() =>
-                                  handleReject(official)
-                                }
+                                onClick={() => handleReject(official)}
                               >
                                 {isBusy ? (
                                   <Loader2
@@ -419,16 +458,16 @@ export default function OfficialAccountManager() {
                               >
                                 Cancel
                               </button>
+
                             </div>
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-2">
+
                             <button
                               type="button"
                               className="btn flex items-center gap-2"
-                              onClick={() =>
-                                handleApprove(official)
-                              }
+                              onClick={() => handleApprove(official)}
                               disabled={isBusy}
                             >
                               {isBusy ? (
@@ -445,23 +484,26 @@ export default function OfficialAccountManager() {
                             <button
                               type="button"
                               className="btn-outline flex items-center gap-2"
-                              onClick={() =>
-                                openRejectForm(official)
-                              }
+                              onClick={() => openRejectForm(official)}
                               disabled={isBusy}
                             >
                               <XCircle size={16} />
                               Reject
                             </button>
+
                           </div>
                         )}
+
                       </div>
                     )}
+
                   </article>
                 );
               })}
+
             </div>
           )}
+
         </section>
       </main>
     </div>

@@ -113,11 +113,10 @@ const completeLogin = async (user, password, res) => {
     });
   }
 
-  if (user.approval_status === 'PENDING') {
-    return res.status(403).json({
-      error: 'Your account is waiting for administrator approval.'
-    });
-  }
+  if (
+  user.role !== 'SUPER_ADMIN' &&
+  user.approval_status === 'PENDING'
+)
 
   if (user.approval_status === 'REJECTED') {
     return res.status(403).json({
@@ -304,11 +303,9 @@ router.post('/staff/register', async (req, res) => {
       ]
     );
 
-    return res.status(201).json({
-      message: 'Registration successful. Your account is waiting for administrator approval.',
-      approval_status: rows[0].approval_status,
-      user: publicUser(rows[0])
-    });
+     return res.status(403).json({
+    error: 'Your account is waiting for administrator approval.'
+  });
 
   } catch (error) {
     if (error.code === '23505') {
