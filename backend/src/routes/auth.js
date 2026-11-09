@@ -7,6 +7,8 @@ import { ROLES, profileKeys, validateRegistration } from '../roleFields.js';
 import { SECRET, authRequired } from '../middleware/auth.js';
 
 const router = express.Router();
+const STAFF_LOGIN_ROLES = ['MEDICAL_OFFICER', 'SPECIALIST', 'NAVIGATOR', 'DISTRICT_ADMIN'];
+const publicUser = (u) => ({ id: u.id, role: u.role, user_code: u.user_code, name: u.name, mobile: u.mobile, email: u.email, profile: u.profile });
 
 const publicUser = (u) => ({
   id: u.id,
@@ -324,66 +326,5 @@ router.post('/staff/register', async (req, res) => {
 
 // Existing staff login endpoint
 router.post('/staff/login', loginHandler(STAFF_LOGIN_ROLES, HW_DOOR));
-
-// Current logged-in user
-router.get('/me', authRequired, async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      'SELECT * FROM app_users WHERE id = $1',
-      [req.user.id]
-    );
-
-    return rows[0]
-      ? res.json(publicUser(rows[0]))
-      : res.status(404).json({ error: 'User not found' });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: 'Unable to fetch user'
-    });
-  }
-});
-
-// Contact visibility
-router.patch('/contact-visibility', authRequired, async (req, res) => {
-  if (!['MEDICAL_OFFICER', 'SPECIALIST'].includes(req.user.role)) {
-    return res.status(403).json({
-      error: 'Public contact preferences are only available to Medical Officers and Specialists'
-    });
-  }
-
-  if (typeof req.body?.public_contact !== 'boolean') {
-    return res.status(400).json({
-      error: 'public_contact must be true or false'
-    });
-  }
-
-  try {
-    const { rows } = await pool.query(
-      `UPDATE app_users
-       SET profile = COALESCE(profile, '{}'::jsonb)
-         || jsonb_build_object('public_contact', $2::boolean)
-       WHERE id = $1 AND role = $3
-       RETURNING *`,
-      [req.user.id, req.body.public_contact, req.user.role]
-    );
-
-    if (!rows[0]) {
-      return res.status(404).json({
-        error: 'User not found'
-      });
-    }
-
-    return res.json(publicUser(rows[0]));
-
-  } catch (error) {
-    console.error(error);
-
-    return res.status(500).json({
-      error: 'Unable to update public contact preference'
-    });
-  }
-});
 
 export default router;

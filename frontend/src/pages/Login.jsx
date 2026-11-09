@@ -27,17 +27,19 @@ export default function Login() {
   }, [roleSlug]);
 
   const submit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setBusy(true);
-
-  try {
-    const { data } = await api.post('/auth/unified-login', {
-      role,
-      ...form
-    });
-
-    login(data);
+    e.preventDefault();
+    setError(''); setBusy(true);
+    try {
+      const endpoint = role === 'HEALTH_WORKER' ? '/auth/login' : '/auth/staff/login';
+      const { data } = await api.post(endpoint, { role, ...form });
+      login(data);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
     navigate('/dashboard');
   } catch (err) {
