@@ -5,9 +5,8 @@ const pw = [
   f('password', 'Password', 'పాస్‌వర్డ్', 'password'),
   f('confirm', 'Confirm Password', 'పాస్‌వర్డ్ నిర్ధారించండి', 'password'),
 ];
-const base = (idLabel, idTe, extra) => [
+const base = (_idLabel, _idTe, extra) => [
   f('name', 'Full Name', 'పూర్తి పేరు'),
-  f('user_code', idLabel, idTe),
   f('mobile', 'Mobile Number', 'మొబైల్ నంబర్', 'tel'),
   ...extra,
   ...pw,
@@ -16,7 +15,7 @@ const email = f('email', 'Email', 'ఇమెయిల్', 'email');
 
 export const ROLES = {
   HEALTH_WORKER: {
-    label: 'Health Worker', te: 'ఆరోగ్య కార్యకర్త', idLabel: 'Worker ID', idTe: 'కార్యకర్త ఐడి',
+    label: 'Health Worker', te: 'ఆరోగ్య కార్యకర్త', idLabel: 'Account ID', idTe: 'ఖాతా ఐడి',
     fields: base('Worker ID', 'కార్యకర్త ఐడి', [
       f('designation', 'Designation', 'హోదా', 'select', ['ASHA', 'ANM', 'Community Health Worker']),
       f('village', 'Village', 'గ్రామం'), f('mandal', 'Mandal', 'మండలం'),
@@ -24,42 +23,39 @@ export const ROLES = {
     ]),
   },
   MEDICAL_OFFICER: {
-    label: 'Medical Officer', te: 'వైద్య అధికారి', idLabel: 'Medical ID', idTe: 'మెడికల్ ఐడి',
+    label: 'Medical Officer', te: 'వైద్య అధికారి', idLabel: 'Account ID', idTe: 'ఖాతా ఐడి',
     fields: base('Medical ID', 'మెడికల్ ఐడి', [
       email, f('specialization', 'Specialization', 'ప్రత్యేకత'),
       f('designation', 'Designation', 'హోదా'), f('district', 'District', 'జిల్లా'), f('mandal', 'Mandal', 'మండలం'),
     ]),
   },
   SPECIALIST: {
-    label: 'Specialist', te: 'నిపుణుడు', idLabel: 'Specialist ID', idTe: 'నిపుణుడి ఐడి',
+    label: 'Specialist', te: 'నిపుణుడు', idLabel: 'Account ID', idTe: 'ఖాతా ఐడి',
     fields: base('Specialist ID', 'నిపుణుడి ఐడి', [
       email, f('med_qualification', 'Medical Qualification', 'వైద్య అర్హత'),
       f('specialization', 'Specialization', 'ప్రత్యేకత'), f('clinic_name', 'Clinic / Hospital Name', 'క్లినిక్ పేరు'),
-      f('district', 'District', 'జిల్లా'),
     ]),
   },
   NAVIGATOR: {
-    label: 'Navigator', te: 'నావిగేటర్', idLabel: 'Navigator ID', idTe: 'నావిగేటర్ ఐడి',
+    label: 'Navigator', te: 'నావిగేటర్', idLabel: 'Account ID', idTe: 'ఖాతా ఐడి',
     fields: base('Navigator ID', 'నావిగేటర్ ఐడి', [
-      email, f('qualification', 'Qualification', 'అర్హత'),
-      f('organization_name', 'Organization Name', 'సంస్థ పేరు'),
-      f('assigned_village', 'Assigned Village', 'కేటాయించిన గ్రామం'), f('district', 'District', 'జిల్లా'), f('mandal', 'Mandal', 'మండలం'),
+      email,
     ]),
   },
   DISTRICT_ADMIN: {
-    label: 'District Administrator', te: 'జిల్లా నిర్వాహకుడు', idLabel: 'Admin ID', idTe: 'అడ్మిన్ ఐడి',
+    label: 'District Administrator', te: 'జిల్లా నిర్వాహకుడు', idLabel: 'Account ID', idTe: 'ఖాతా ఐഡി',
     fields: base('Admin ID', 'అడ్మిన్ ఐడి', [
       email, f('designation', 'Designation', 'హోదా'), f('department', 'Department', 'శాఖ'),
-      f('state', 'State', 'రాష్ట్రం'), f('district', 'District', 'జిల్లా'), f('mandal', 'Mandal', 'మండలం'),
+      f('district', 'District', 'జిల్లా'),
     ]),
   },
   SUPER_ADMIN: {
-    label: 'Super Admin', te: 'సూపర్ అడ్మిన్', idLabel: 'Super Admin ID', idTe: 'సూపర్ అడ్మిన్ ఐడి',
+    label: 'Super Admin', te: 'సూపర్ అడ్మిన్', idLabel: 'Account ID', idTe: 'ఖాతా ఐడి',
     fields: [],
   },
 };
 
-const COLUMN_FIELDS = ['name', 'user_code', 'mobile', 'email', 'password', 'confirm'];
+const COLUMN_FIELDS = ['name', 'mobile', 'email', 'password', 'confirm'];
 export const profileKeys = (role) => ROLES[role].fields.map((x) => x.name).filter((n) => !COLUMN_FIELDS.includes(n));
 
 // Returns an error message, or null when the submitted form is valid.

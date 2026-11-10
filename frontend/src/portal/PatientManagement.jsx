@@ -31,11 +31,22 @@ function PatientManagement() {
   ).length;
   const consented = patients.filter((patient) => patient.consent).length;
 
+  const patientsByVillage = Object.fromEntries(
+    [...new Set(patients.map((patient) => patient.village || "Unknown"))]
+      .sort((a, b) => a.localeCompare(b))
+      .map((village) => [
+        village,
+        patients
+          .filter((patient) => (patient.village || "Unknown") === village)
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      ]),
+  );
+
   return (
     <div className="patient-page legacy">
       <header className="patient-header">
         <Link to="/dashboard" className="patient-brand">
-          + AAROGYA DRISHTI
+          + SEHAT · HEALTH FOR EVERY VILLAGE
         </Link>
         <Link to="/dashboard" className="patient-home">
           Back to Dashboard
@@ -65,6 +76,35 @@ function PatientManagement() {
             <h2>{consented}</h2>
           </div>
         </div>
+
+        <section className="patient-village-section">
+          <h2>Patients by Village</h2>
+
+          {loading ? (
+            <p role="status">Loading villages…</p>
+          ) : error ? (
+            <p role="alert">{error}</p>
+          ) : Object.keys(patientsByVillage).length === 0 ? (
+            <div className="empty-patients">
+              <span>👥</span>
+              <h3>No Village Records Yet</h3>
+              <p>Patient names will appear under their village once records are available.</p>
+            </div>
+          ) : (
+            <div className="village-groups">
+              {Object.entries(patientsByVillage).map(([village, villagePatients]) => (
+                <div key={village} className="village-group">
+                  <h3>{village}</h3>
+                  <ul>
+                    {villagePatients.map((patient) => (
+                      <li key={patient.id}>{patient.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="patient-table-section">
           <h2>Registered Patients</h2>

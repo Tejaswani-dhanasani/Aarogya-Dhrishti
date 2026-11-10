@@ -58,7 +58,7 @@ function SpecialistConsultation() {
     <div className="specialist-page legacy">
       <header className="specialist-header">
         <div>
-          <span className="specialist-brand">AAROGYA DRISHTI</span>
+          <span className="specialist-brand">SEHAT · HEALTH FOR EVERY VILLAGE</span>
           <h1>Specialist Consultation</h1>
           <p>Review referred cases and document consultation outcomes.</p>
         </div>

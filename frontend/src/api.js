@@ -7,6 +7,25 @@ const api = axios.create({
   baseURL: `${API_URL}/api`,
 });
 
+api.interceptors.response.use(undefined, async (error) => {
+  const config = error.config;
+  const method = config?.method?.toLowerCase();
+  const safeToRetry = ['get', 'head'].includes(method)
+    || Boolean(config?.headers?.['Idempotency-Key']);
+  const retryable = !error.response
+    || error.response.status === 408
+    || error.response.status === 429
+    || error.response.status >= 500;
+
+  if (!config || !safeToRetry || !retryable || (config.__retryCount || 0) >= 2) {
+    return Promise.reject(error);
+  }
+
+  config.__retryCount = (config.__retryCount || 0) + 1;
+  await new Promise((resolve) => setTimeout(resolve, 300 * (2 ** config.__retryCount)));
+  return api.request(config);
+});
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("ad_token");
 

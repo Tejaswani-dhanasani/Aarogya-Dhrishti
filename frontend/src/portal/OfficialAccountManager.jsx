@@ -27,7 +27,7 @@ const STATUS_LABELS = {
   REJECTED: 'Rejected',
 };
 
-export default function OfficialAccountManager() {
+export default function OfficialAccountManager({ embedded = false }) {
   const { user } = useAuth();
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -172,27 +172,31 @@ export default function OfficialAccountManager() {
     return 'bg-amber-50 text-amber-700';
   };
 
+  const Main = embedded ? 'div' : 'main';
+
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className={embedded ? 'space-y-6' : 'min-h-screen bg-neutral-100'}>
 
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-4 md:px-8">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-primary-700">
-            {isSuperAdmin ? 'Super Admin' : 'District Admin'}
-          </p>
+      {!embedded && (
+        <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-4 md:px-8">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-primary-700">
+              {isSuperAdmin ? 'Super Admin' : 'District Admin'}
+            </p>
 
-          <h1 className="text-xl font-bold">
-            Official Approval Management
-          </h1>
-        </div>
+            <h1 className="text-xl font-bold">
+              Official Approval Management
+            </h1>
+          </div>
 
-        <Link to="/dashboard" className="btn-outline">
-          Back to dashboard
-        </Link>
-      </header>
+          <Link to="/dashboard" className="btn-outline">
+            Back to dashboard
+          </Link>
+        </header>
+      )}
 
-      <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+      <Main className={embedded ? 'space-y-6' : 'mx-auto max-w-6xl space-y-6 p-4 md:p-8'}>
 
         {/* Summary */}
         <section className="card">
@@ -505,7 +509,7 @@ export default function OfficialAccountManager() {
           )}
 
         </section>
-      </main>
+      </Main>
     </div>
   );
 }

@@ -82,14 +82,16 @@ export default function Register() {
         return;
       }
 
-      await api.post('/auth/register', {
+      const { data: registration } = await api.post('/auth/register', {
         ...data,
         district: district.name_en,
         mandal: mandal.name_en,
         village: village.name_en,
         role,
       });
-      navigate('/login', { state: { registered: true, role } });
+      navigate('/login', {
+        state: { registered: true, role, generatedUserCode: registration.user.user_code }
+      });
     } catch (e) { setError(errMsg(e)); }
   };
 

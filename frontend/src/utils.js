@@ -24,5 +24,7 @@ export const formatAbha = (v) => {
   return [d.slice(0, 2), d.slice(2, 6), d.slice(6, 10), d.slice(10, 14)].filter(Boolean).join('-');
 };
 
+export const formatPatientId = (id) => `AD-${String(id).padStart(6, '0')}`;
+
 export const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 export const isThisWeek = (iso) => Date.now() - new Date(iso).getTime() < 7 * 24 * 3600 * 1000;

@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { X, Phone, MapPin, Droplet, Fingerprint, Pill, History, ShieldCheck, Info } from 'lucide-react';
-import { API_URL } from '../api.js';
-import { initials, riskOf, fmtDate } from '../utils.js';
+import { useEffect, useState } from 'react';
+import { X, Phone, MapPin, Droplet, Fingerprint, Pill, History, ShieldCheck, Info, Pencil, Archive } from 'lucide-react';
+import api, { API_URL, errMsg } from '../api.js';
+import { initials, riskOf, fmtDate, formatPatientId } from '../utils.js';
 import { useLang } from '../lang.jsx';
 
 const Row = ({ icon: Icon, label, children }) => (
@@ -12,13 +12,37 @@ const Row = ({ icon: Icon, label, children }) => (
 );
 
 // Slide-in panel with the complete patient record (health-card style).
-export default function PatientDrawer({ patient: p, onClose }) {
+export default function PatientDrawer({ patient: p, onClose, canManage = false, onEdit, onArchive }) {
   const { t } = useLang();
+  const [reports, setReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  useEffect(() => {
+    if (!p?.id) {
+      setReports([]);
+      return undefined;
+    }
+    let active = true;
+    setReports([]);
+    setReportsLoading(true);
+    setReportsError('');
+    api.get(`/prescriptions/patients/${p.id}`)
+      .then(({ data }) => {
+        if (active) setReports(data.reports);
+      })
+      .catch((error) => {
+        if (active) setReportsError(errMsg(error));
+      })
+      .finally(() => {
+        if (active) setReportsLoading(false);
+      });
+    return () => { active = false; };
+  }, [p?.id]);
   if (!p) return null;
   const risk = riskOf(p);
 
@@ -37,6 +61,7 @@ export default function PatientDrawer({ patient: p, onClose }) {
               : <span className="grid h-20 w-20 place-items-center rounded-2xl bg-primary-100 text-2xl font-bold text-primary-700">{initials(p.name)}</span>}
             <div>
               <h3 className="text-xl font-bold">{p.name}</h3>
+              <p className="font-mono text-sm text-primary-700">{formatPatientId(p.id)}</p>
               <p className="text-sm text-neutral-500">{p.age} yrs · {p.gender}</p>
               <p className="mt-1 text-xs text-neutral-400">Added {fmtDate(p.created_at)} by {p.worker_name}</p>
             </div>
@@ -73,12 +98,59 @@ export default function PatientDrawer({ patient: p, onClose }) {
             ) : <p className="text-sm text-neutral-500">No habits recorded</p>}
           </section>
 
+          <section>
+            <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Pill size={16} /> Clinical reports and prescriptions</h4>
+            {reportsLoading && <p className="text-sm text-neutral-500">Loading clinical reports...</p>}
+            {reportsError && <p className="text-sm text-error-700" role="alert">{reportsError}</p>}
+            {!reportsLoading && !reportsError && !reports.length && (
+              <p className="text-sm text-neutral-500">No clinical reports recorded.</p>
+            )}
+            <div className="space-y-3">
+              {reports.map((report) => (
+                <article className="rounded-xl border border-neutral-200 p-3" key={report.id}>
+                  <p className="font-mono text-xs font-semibold text-primary-700">
+                    {report.report_code}{report.prescription_code ? ` · ${report.prescription_code}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-600">
+                    {report.severity === 'SERIOUS' ? 'Serious' : 'Non-serious'} · {report.clinician_name} · {fmtDate(report.created_at)}
+                  </p>
+                  {report.notes && <p className="mt-2 whitespace-pre-wrap text-sm">{report.notes}</p>}
+                  {report.medicines.length ? (
+                    <ul className="mt-2 divide-y divide-neutral-100">
+                      {report.medicines.map((medicine) => (
+                        <li className="py-2 text-sm" key={medicine.id}>
+                          <p className="font-medium">{medicine.name} · Quantity: {medicine.quantity} {medicine.unit}</p>
+                          <p className="text-xs text-neutral-600">{medicine.dosage} · {medicine.frequency} · {medicine.duration}</p>
+                          {medicine.instructions && <p className="text-xs text-neutral-600">{medicine.instructions}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="mt-2 text-sm text-neutral-500">No medicines recorded.</p>}
+                </article>
+              ))}
+            </div>
+          </section>
+
           <div className="space-y-4">
             <Row icon={History} label="Previous health problems">{p.previous_health}</Row>
             <Row icon={Pill} label="Current medications">{p.medications}</Row>
             <Row icon={ShieldCheck} label="Consent">{p.consent ? 'Given by patient' : 'Not recorded'}</Row>
           </div>
         </div>
+        {canManage && (
+          <footer className="flex gap-3 border-t p-4">
+            <button type="button" className="btn flex-1" onClick={() => onEdit?.(p)}>
+              <Pencil size={16} />Edit patient
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl border border-error-200 px-4 py-2 font-semibold text-error-700 hover:bg-error-50"
+              onClick={() => onArchive?.(p)}
+            >
+              <Archive size={16} />Archive
+            </button>
+          </footer>
+        )}
       </aside>
     </div>
   );

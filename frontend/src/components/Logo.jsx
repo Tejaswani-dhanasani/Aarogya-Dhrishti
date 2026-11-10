@@ -8,8 +8,8 @@ export default function Logo({ light = false, size = 'md' }) {
         <HeartPulse size={size === 'lg' ? 24 : 20} />
       </span>
       <span className="leading-none">
-        Aarogya Drishti
-        <span className={`mt-0.5 block text-[10px] font-semibold uppercase tracking-widest ${light ? 'text-primary-200' : 'text-primary-600'}`}>Oral Care Connect</span>
+        Sehat
+        <span className={`mt-0.5 block text-[10px] font-semibold uppercase tracking-widest ${light ? 'text-primary-200' : 'text-primary-600'}`}>Health for Every Village</span>
       </span>
     </span>
   );

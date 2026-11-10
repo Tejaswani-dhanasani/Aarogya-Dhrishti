@@ -27,6 +27,7 @@ async function getPatientInDistrict(patientId, district) {
      JOIN public.app_users hw
        ON hw.id = p.health_worker_id
      WHERE p.id = $1
+       AND p.deleted_at IS NULL
        AND LOWER(TRIM(COALESCE(hw.profile->>'district', ''))) =
            LOWER(TRIM($2))`,
     [patientId, district]
@@ -57,19 +58,55 @@ router.get('/patients', async (req, res) => {
          p.symptoms,
          p.tobacco,
          p.created_at,
-         hw.name AS worker_name
+         hw.name AS worker_name,
+         COALESCE(f.followup_count, 0)::int AS followup_count,
+         COALESCE(f.completed_followups, 0)::int AS completed_followups,
+         f.last_followup_date,
+         f.last_health_status,
+         f.next_followup_date
        FROM public.app_patients p
        JOIN public.app_users hw
          ON hw.id = p.health_worker_id
-       WHERE LOWER(TRIM(COALESCE(hw.profile->>'district', ''))) =
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*) AS followup_count,
+           COUNT(*) FILTER (
+             WHERE followup_date <= CURRENT_DATE
+           ) AS completed_followups,
+           (ARRAY_AGG(
+             followup_date ORDER BY followup_date DESC, created_at DESC
+           ))[1] AS last_followup_date,
+           (ARRAY_AGG(
+             health_status ORDER BY followup_date DESC, created_at DESC
+           ))[1] AS last_health_status,
+           MIN(next_followup_date) FILTER (
+             WHERE next_followup_date >= CURRENT_DATE
+           ) AS next_followup_date
+         FROM public.app_patient_followups
+         WHERE patient_id = p.id
+       ) f ON TRUE
+       WHERE p.deleted_at IS NULL
+         AND LOWER(TRIM(COALESCE(hw.profile->>'district', ''))) =
              LOWER(TRIM($1))
        ORDER BY p.created_at DESC`,
       [district]
     );
 
+    const stats = rows.reduce((totals, patient) => ({
+      completedFollowUps: totals.completedFollowUps + patient.completed_followups,
+      upcomingFollowUps: totals.upcomingFollowUps + Number(Boolean(patient.next_followup_date))
+    }), {
+      completedFollowUps: 0,
+      upcomingFollowUps: 0
+    });
+
     return res.json({
       district,
-      patients: rows
+      patients: rows,
+      stats: {
+        totalPatients: rows.length,
+        ...stats
+      }
     });
   } catch (error) {
     console.error('Navigator patient list error:', error);
@@ -157,9 +194,24 @@ router.post('/patients/:patientId', async (req, res) => {
       next_followup_date
     } = req.body || {};
 
-    if (!health_status?.trim()) {
+    if (typeof health_status !== 'string' || !health_status.trim()) {
       return res.status(400).json({
         error: 'Health status is required'
+      });
+    }
+    if (health_status.trim().length > 2000) {
+      return res.status(400).json({
+        error: 'Health status must be 2,000 characters or fewer'
+      });
+    }
+    if (remarks !== undefined && remarks !== null && typeof remarks !== 'string') {
+      return res.status(400).json({
+        error: 'Remarks must be text'
+      });
+    }
+    if (typeof remarks === 'string' && remarks.length > 4000) {
+      return res.status(400).json({
+        error: 'Remarks must be 4,000 characters or fewer'
       });
     }
 

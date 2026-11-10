@@ -23,6 +23,7 @@ const VISIBLE_ROLES = {
     'NAVIGATOR',
   ],
 };
+const DISTRICT_INDEPENDENT_ROLES = ['SPECIALIST', 'NAVIGATOR'];
 
 router.use(authRequired, requireRole('SUPER_ADMIN', 'DISTRICT_ADMIN'));
 
@@ -57,10 +58,17 @@ router.get('/officials', async (req, res) => {
        WHERE role = ANY($1::text[])
          AND (
            $2::text IS NULL OR
-           lower(trim(profile->>'district')) = lower(trim($2))
+           lower(trim(profile->>'district')) = lower(trim($2)) OR
+           role = ANY($3::text[])
          )
        ORDER BY created_at DESC`,
-      [VISIBLE_ROLES[req.user.role], district]
+      [
+        VISIBLE_ROLES[req.user.role],
+        district,
+        req.user.role === 'DISTRICT_ADMIN'
+          ? DISTRICT_INDEPENDENT_ROLES
+          : [],
+      ]
     );
 
     res.json(rows);
@@ -128,7 +136,8 @@ router.patch('/officials/:id/approval', async (req, res) => {
          AND approval_status = 'PENDING'
          AND (
            $6::text IS NULL OR
-           lower(trim(profile->>'district')) = lower(trim($6))
+           lower(trim(profile->>'district')) = lower(trim($6)) OR
+           ($7::boolean AND role = ANY($8::text[]))
          )
        RETURNING
          id, role, user_code, name, approval_status,
@@ -140,6 +149,8 @@ router.patch('/officials/:id/approval', async (req, res) => {
         id,
         MANAGED_ROLES[req.user.role],
         district,
+        req.user.role === 'DISTRICT_ADMIN',
+        DISTRICT_INDEPENDENT_ROLES,
       ]
     );
 

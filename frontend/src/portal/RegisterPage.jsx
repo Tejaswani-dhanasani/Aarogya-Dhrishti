@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SLUG_TO_ROLE } from "./roles.js";
 import { useRoles } from "../hooks.js";
@@ -33,6 +33,12 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [registeredUserCode, setRegisteredUserCode] = useState("");
+  const [districts, setDistricts] = useState([]);
+  const [mandals, setMandals] = useState([]);
+  const [locationError, setLocationError] = useState("");
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingMandals, setLoadingMandals] = useState(false);
 
   const isAllowed = [
     "DISTRICT_ADMIN",
@@ -42,12 +48,80 @@ function RegisterPage() {
   ].includes(selectedRole);
 
   const roleDefinition = roles?.[selectedRole];
+  const registrationFields = useMemo(
+    () =>
+      (roleDefinition?.fields || []).filter(
+        (field) => selectedRole !== "DISTRICT_ADMIN" || field.name !== "mandal"
+      ),
+    [roleDefinition, selectedRole]
+  );
+
+  useEffect(() => {
+    if (!registrationFields.some((field) => field.name === "district")) {
+      setDistricts([]);
+      return;
+    }
+
+    let active = true;
+    setLoadingDistricts(true);
+    setLocationError("");
+
+    api.get("/locations/districts")
+      .then(({ data }) => {
+        if (active) setDistricts(data);
+      })
+      .catch((err) => {
+        if (active) setLocationError(errMsg(err));
+      })
+      .finally(() => {
+        if (active) setLoadingDistricts(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [registrationFields]);
+
+  useEffect(() => {
+    if (
+      !formData.district ||
+      selectedRole === "DISTRICT_ADMIN" ||
+      !registrationFields.some((field) => field.name === "mandal")
+    ) {
+      setMandals([]);
+      return;
+    }
+
+    const district = districts.find((item) => item.name_en === formData.district);
+    if (!district) return;
+
+    let active = true;
+    setLoadingMandals(true);
+    setLocationError("");
+
+    api.get(`/locations/mandals/${district.id}`)
+      .then(({ data }) => {
+        if (active) setMandals(data);
+      })
+      .catch((err) => {
+        if (active) setLocationError(errMsg(err));
+      })
+      .finally(() => {
+        if (active) setLoadingMandals(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [districts, formData.district, registrationFields, selectedRole]);
 
   const updateField = (name, value) => {
     setFormData((previous) => ({
       ...previous,
       [name]: value,
+      ...(name === "district" ? { mandal: "" } : {}),
     }));
+    setLocationError("");
   };
 
   const handleSubmit = async (event) => {
@@ -67,8 +141,8 @@ function RegisterPage() {
         role: selectedRole,
       };
 
-      await api.post("/auth/staff/register", payload);
-
+      const { data } = await api.post("/auth/staff/register", payload);
+      setRegisteredUserCode(data.user.user_code);
       setSuccess(true);
     } catch (err) {
       setError(errMsg(err));
@@ -81,7 +155,7 @@ function RegisterPage() {
     <div className="register-page legacy">
       <div className="register-header">
         <Link to="/" className="register-brand">
-          ✚ AAROGYA DRISHTI
+          ✚ SEHAT · HEALTH FOR EVERY VILLAGE
         </Link>
 
         <Link to="/" className="home-link">
@@ -112,12 +186,17 @@ function RegisterPage() {
             </>
           ) : success ? (
             <div className="registration-success">
-              <h2>Registration Submitted Successfully!</h2>
+              <h2>Registration Successful!</h2>
 
               <p>
-                Your account is now pending administrator approval.
-                You can log in after your administrator approves it.
+                {selectedRole === "DISTRICT_ADMIN"
+                  ? "Your District Admin account is active and ready to use."
+                  : "Your account is pending administrator approval. You can log in after your District Admin approves it."}
               </p>
+
+              {registeredUserCode && (
+                <p>Your login ID: <strong>{registeredUserCode}</strong></p>
+              )}
 
               <Link to={`/login/${role}`} className="home-link">
                 Go to Login →
@@ -126,8 +205,9 @@ function RegisterPage() {
           ) : (
             <>
               <p>
-                Complete your details below. Your account will be reviewed
-                by the appropriate administrator.
+                {selectedRole === "DISTRICT_ADMIN"
+                  ? "Complete your details below. Your account will be active immediately."
+                  : "Complete your details below. Your account will be reviewed by your District Admin."}
               </p>
 
               {rolesError && (
@@ -145,7 +225,7 @@ function RegisterPage() {
                   onSubmit={handleSubmit}
                   className="register-form"
                 >
-                  {(roleDefinition.fields || [])
+                  {registrationFields
                     .filter((field) =>
                       [
                         "name",
@@ -178,7 +258,7 @@ function RegisterPage() {
                       </div>
                     ))}
 
-                  {(roleDefinition.fields || [])
+                  {registrationFields
                     .filter(
                       (field) =>
                         ![
@@ -196,7 +276,47 @@ function RegisterPage() {
                       >
                         <label>{field.label}</label>
 
-                        {field.type === "select" ? (
+                        {field.name === "district" ? (
+                          <select
+                            value={formData.district || ""}
+                            onChange={(event) =>
+                              updateField("district", event.target.value)
+                            }
+                            required
+                            disabled={loadingDistricts}
+                          >
+                            <option value="">
+                              {loadingDistricts
+                                ? "Loading districts..."
+                                : "Select District"}
+                            </option>
+                            {districts.map((district) => (
+                              <option key={district.id} value={district.name_en}>
+                                {district.name_en}
+                              </option>
+                            ))}
+                          </select>
+                        ) : field.name === "mandal" ? (
+                          <select
+                            value={formData.mandal || ""}
+                            onChange={(event) =>
+                              updateField("mandal", event.target.value)
+                            }
+                            required
+                            disabled={!formData.district || loadingMandals}
+                          >
+                            <option value="">
+                              {loadingMandals
+                                ? "Loading mandals..."
+                                : "Select Mandal"}
+                            </option>
+                            {mandals.map((mandal) => (
+                              <option key={mandal.id} value={mandal.name_en}>
+                                {mandal.name_en}
+                              </option>
+                            ))}
+                          </select>
+                        ) : field.type === "select" ? (
                           <select
                             value={formData[field.name] || ""}
                             onChange={(event) =>
@@ -229,6 +349,11 @@ function RegisterPage() {
 
                   {error && (
                     <p className="form-error">{error}</p>
+                  )}
+                  {locationError && (
+                    <p role="alert" className="form-error">
+                      {locationError}
+                    </p>
                   )}
 
                   <button type="submit" disabled={loading}>

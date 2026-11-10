@@ -17,7 +17,10 @@ export default function Login() {
   const { role: roleSlug } = useParams();
   const initialRole = SLUG_TO_ROLE[roleSlug] || location.state?.role || 'HEALTH_WORKER';
   const [role, setRole] = useState(initialRole === 'SUPER_ADMIN' ? 'HEALTH_WORKER' : initialRole);
-  const [form, setForm] = useState({ user_code: '', password: '' });
+  const [form, setForm] = useState(() => ({
+    user_code: location.state?.generatedUserCode || '',
+    password: ''
+  }));
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,14 +43,6 @@ export default function Login() {
       setBusy(false);
     }
   };
-
-    navigate('/dashboard');
-  } catch (err) {
-    setError(errMsg(err));
-  } finally {
-    setBusy(false);
-  }
-};
   return (
     <AuthShell>
       <div className="card p-7 shadow-lg sm:p-8">
@@ -55,7 +50,13 @@ export default function Login() {
         <h1 className="mt-4 text-2xl font-bold">{t('loginTitle')}</h1>
         <p className="mt-1 text-sm text-neutral-500">{t('loginSub')}</p>
 
-        {location.state?.registered && <p className="mt-4 flex items-center gap-2 rounded-xl bg-success-50 p-3 text-sm text-success-700"><CheckCircle2 size={16} />{lang === 'te' ? 'నమోదు విజయవంతం. దయచేసి లాగిన్ అవ్వండి.' : 'Registered successfully. Please login.'}</p>}
+        {location.state?.registered && (
+          <p className="mt-4 rounded-xl bg-success-50 p-3 text-sm text-success-800" role="status">
+            <span className="flex items-center gap-2"><CheckCircle2 size={16} />{lang === 'te' ? 'నమోదు విజయవంతం. మీ ఆటోమేటిక్ లాగిన్ ఐడి:' : 'Registration successful. Your automatically generated login ID is:'}</span>
+            <strong className="mt-1 block font-mono text-base">{location.state.generatedUserCode}</strong>
+            <span className="mt-1 block">{lang === 'te' ? 'ఈ ఐడిని భద్రపరచండి; ఇది లాగిన్ చేయడానికి అవసరం.' : 'Save this ID; you will need it to sign in.'}</span>
+          </p>
+        )}
         {loadError && <p className="mt-4 flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{loadError}</p>}
         {!roles && !loadError && <p className="mt-6 flex items-center gap-2 text-sm text-neutral-500"><Loader2 className="animate-spin" size={16} />Loading…</p>}
 

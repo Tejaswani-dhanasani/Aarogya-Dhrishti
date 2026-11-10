@@ -19,7 +19,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-lg">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" aria-label="Aarogya Drishti home"><Logo /></Link>
+        <Link to="/" aria-label="Sehat home"><Logo /></Link>
         <nav className="hidden items-center gap-7 text-sm font-medium text-neutral-600 lg:flex">
           {links.map(([h, l]) => <a key={h} href={h} className="transition hover:text-primary-700">{l}</a>)}
         </nav>

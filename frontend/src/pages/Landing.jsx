@@ -209,7 +209,7 @@ export default function Landing() {
       <footer className="bg-neutral-900 py-10 text-neutral-400">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm md:flex-row">
           <Logo light />
-          <p>© 2026 Aarogya Drishti · Demo data only</p>
+          <p>© 2026 Sehat · Health for Every Village · Demo data only</p>
         </div>
       </footer>
     </div>

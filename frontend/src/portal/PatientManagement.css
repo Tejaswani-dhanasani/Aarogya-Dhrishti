@@ -94,7 +94,8 @@
 }
 
 .patient-page .patient-form,
-.patient-page .patient-table-section {
+.patient-page .patient-table-section,
+.patient-page .patient-village-section {
   background: white;
   padding: 30px;
   border-radius: 13px;
@@ -103,9 +104,49 @@
 }
 
 .patient-page .patient-form h2,
-.patient-page .patient-table-section h2 {
+.patient-page .patient-table-section h2,
+.patient-page .patient-village-section h2 {
   color: #174c4b;
   margin-top: 0;
+}
+
+.patient-page .village-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.patient-page .village-group {
+  border: 1px solid #e7eeee;
+  border-radius: 10px;
+  padding: 18px;
+  background: #f8fbfb;
+}
+
+.patient-page .village-group h3 {
+  margin: 0 0 12px;
+  color: #087c75;
+  font-size: 18px;
+}
+
+.patient-page .village-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.patient-page .village-group li {
+  color: #31565a;
+  font-size: 14px;
+  padding: 6px 0;
+  border-bottom: 1px solid #edf3f3;
+}
+
+.patient-page .village-group li:last-child {
+  border-bottom: none;
 }
 
 .patient-page .patient-form-grid {

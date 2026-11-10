@@ -63,7 +63,7 @@ function MedicalOfficerReview() {
     <div className="review-page legacy">
       <header className="review-header">
         <div>
-          <p className="review-label">AAROGYA DRISHTI</p>
+          <p className="review-label">SEHAT · HEALTH FOR EVERY VILLAGE</p>
           <h1>Medical Officer Review</h1>
           <p>Review submitted oral screening records.</p>
         </div>

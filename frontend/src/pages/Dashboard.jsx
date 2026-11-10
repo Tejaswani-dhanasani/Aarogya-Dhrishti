@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Users, UserCircle, LogOut, Languages, Menu, AlertTriangle, CalendarPlus, Fingerprint, ArrowRight, Phone, Mail, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Users, UserCircle, LogOut, Languages, Menu, AlertTriangle, CalendarPlus, Fingerprint, ArrowRight, Phone, Mail, ClipboardCheck, FileText } from 'lucide-react';
 import api, { errMsg } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useLang } from '../lang.jsx';
@@ -8,6 +8,8 @@ import { riskOf, isThisWeek, initials } from '../utils.js';
 import Logo from '../components/Logo.jsx';
 import PatientForm from '../components/PatientForm.jsx';
 import PatientList from '../components/PatientList.jsx';
+import OfflinePatientSync from '../components/OfflinePatientSync.jsx';
+import OfficialAccountManager from '../portal/OfficialAccountManager.jsx';
 
 const ROLE_NAMES = { HEALTH_WORKER: 'Health Worker', MEDICAL_OFFICER: 'Medical Officer', SPECIALIST: 'Specialist', NAVIGATOR: 'Navigator', DISTRICT_ADMIN: 'District Administrator', SUPER_ADMIN: 'Super Admin' };
 const WELCOME = {
@@ -21,10 +23,10 @@ const WELCOME = {
 const WORKSPACE = {
   SUPER_ADMIN: {
     title: 'Platform administration',
-    description: 'Manage District Admin accounts and control official access to the platform.',
-    action: 'Manage district admins',
+    description: 'View District Admin accounts and manage platform access.',
+    action: 'Review district admins',
     path: '/staff-management',
-    status: 'Only Super Admins can create District Admin accounts.',
+    status: 'District Admins register their own accounts and are active immediately.',
   },
   MEDICAL_OFFICER: {
     title: 'Clinical review workspace',
@@ -34,25 +36,25 @@ const WORKSPACE = {
     status: 'The review screen currently uses demo records.',
   },
   SPECIALIST: {
-  title: 'Special Medical Officer Workspace',
-  description: 'Review serious cases and create specialist appointments and referrals.',
-  action: 'Manage Appointments & Referrals',
-  path: '/special-officer/appointments',
-  status: 'Appointments and referrals are managed by the Special Medical Officer.',
-},
+    title: 'Specialist consultation workspace',
+    description: 'Schedule consultations and document specialist outcomes.',
+    action: 'Manage consultations',
+    path: '/specialist/consultation',
+    status: 'Consultations are saved to the application database.',
+  },
   NAVIGATOR: {
-  title: 'Patient Navigation Workspace',
-  description: 'Coordinate approved specialist appointments and track patient referrals and follow-ups.',
-  action: 'Open Appointment Coordination',
-  path: '/navigator/appointments',
-  status: 'Coordinate appointments approved by the Special Medical Officer.',
-},
+    title: 'Patient follow-up workspace',
+    description: 'Record follow-ups and monitor patients in your district.',
+    action: 'Manage follow-ups',
+    path: '/follow-up',
+    status: 'Follow-up records are saved to the application database.',
+  },
   DISTRICT_ADMIN: {
     title: 'District administration workspace',
-    description: 'Create and manage official accounts assigned to your district.',
-    action: 'Manage district officials',
+    description: 'Review official accounts and approval status for your district.',
+    action: 'Review district officials',
     path: '/staff-management',
-    status: 'Only Medical Officer, Specialist, and Navigator accounts can be created here.',
+    status: 'Approve Medical Officer, Specialist and Navigator registrations in your district.',
   },
 };
 
@@ -72,6 +74,10 @@ export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
+  const [mandalVillages, setMandalVillages] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState('');
+  const [locationsRetry, setLocationsRetry] = useState(0);
   const [publicContact, setPublicContact] = useState(user.profile?.public_contact === true);
   const [contactPreferenceBusy, setContactPreferenceBusy] = useState(false);
   const [contactPreferenceError, setContactPreferenceError] = useState('');
@@ -86,6 +92,61 @@ export default function Dashboard() {
     api.get('/patients').then((r) => { setRows(r.data); setError(''); }).catch((e) => setError(errMsg(e)));
   }, [canViewPatients]);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (user.role !== 'MEDICAL_OFFICER') return undefined;
+
+    const districtName = user.profile?.district?.trim();
+    const mandalName = user.profile?.mandal?.trim();
+    if (!districtName || !mandalName) {
+      setMandalVillages([]);
+      setLocationsLoading(false);
+      setLocationsError('Your account does not have a district and mandal assigned.');
+      return undefined;
+    }
+
+    let active = true;
+    setLocationsLoading(true);
+    setLocationsError('');
+
+    const loadMandalVillages = async () => {
+      try {
+        const { data: districts } = await api.get('/locations/districts');
+        const district = districts.find(
+          (item) => item.name_en.toLocaleLowerCase() === districtName.toLocaleLowerCase(),
+        );
+        if (!district) {
+          if (active) setLocationsError(`Could not find district "${districtName}".`);
+          return;
+        }
+
+        const { data: mandals } = await api.get(`/locations/mandals/${district.id}`);
+        const mandal = mandals.find(
+          (item) => item.name_en.toLocaleLowerCase() === mandalName.toLocaleLowerCase(),
+        );
+        if (!mandal) {
+          if (active) setLocationsError(`Could not find mandal "${mandalName}" in ${districtName}.`);
+          return;
+        }
+
+        const { data: villages } = await api.get(`/locations/villages/${mandal.id}`);
+        if (active) setMandalVillages([{ ...mandal, villages }]);
+      } catch (requestError) {
+        if (active) {
+          setLocationsError(
+            requestError.response ? errMsg(requestError) : requestError.message || errMsg(requestError),
+          );
+        }
+      } finally {
+        if (active) setLocationsLoading(false);
+      }
+    };
+
+    loadMandalVillages();
+    return () => {
+      active = false;
+    };
+  }, [user.profile?.district, user.profile?.mandal, user.role, locationsRetry]);
 
   const menu = [
     ['overview', t('dashboard'), LayoutDashboard],
@@ -116,6 +177,20 @@ export default function Dashboard() {
   const high = rows?.filter((p) => riskOf(p).level === 'high').length ?? 0;
   const week = rows?.filter((p) => isThisWeek(p.created_at)).length ?? 0;
   const abha = rows?.filter((p) => p.abha_number).length ?? 0;
+  const registeredVillageGroups = mandalVillages
+    .map((mandal) => ({
+      ...mandal,
+      villages: mandal.villages
+        .map((village) => ({
+          ...village,
+          patients: (rows || []).filter(
+            (patient) => patient.village?.trim().toLocaleLowerCase()
+              === village.name_en.trim().toLocaleLowerCase(),
+          ),
+        }))
+        .filter((village) => village.patients.length > 0),
+    }))
+    .filter((mandal) => mandal.villages.length > 0);
 
   const sidebar = (
     <div className="flex h-full flex-col bg-neutral-900 text-neutral-300">
@@ -128,7 +203,12 @@ export default function Dashboard() {
           </button>
         ))}
         {workspace && (
-          <Link to={workspace.path} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white/10 hover:text-white"><ClipboardCheck size={18} />{workspace.action}</Link>
+          <>
+            <Link to={workspace.path} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white/10 hover:text-white"><ClipboardCheck size={18} />{workspace.action}</Link>
+            {(user.role === 'MEDICAL_OFFICER' || user.role === 'SPECIALIST') && (
+              <Link to="/clinical-reports" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-white/10 hover:text-white"><FileText size={18} />Clinical reports</Link>
+            )}
+          </>
         )}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
@@ -165,6 +245,8 @@ export default function Dashboard() {
         </header>
 
         <main className="space-y-6 p-4 md:p-8">
+          {isHW && <OfflinePatientSync workerId={user.id} onSynced={load} />}
+
           {tab === 'overview' && (
             <div className="animate-fade-up space-y-6">
               <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-700 to-secondary-700 p-6 text-white md:p-8">
@@ -189,6 +271,51 @@ export default function Dashboard() {
                 </section>
               ) : null}
 
+              {user.role === 'MEDICAL_OFFICER' && (
+                <section className="card p-5 md:p-6">
+                  <div className="mb-4">
+                    <h2 className="text-lg font-bold">Patients by Village</h2>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      Registered patients from villages in your assigned mandal ({user.profile?.mandal || 'not set'}).
+                    </p>
+                  </div>
+                  {locationsLoading ? (
+                    <p role="status" className="text-sm text-neutral-500">Loading villages…</p>
+                  ) : locationsError ? (
+                    <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-error-700">
+                      <p>{locationsError}</p>
+                      {user.profile?.district && user.profile?.mandal && (
+                        <button className="font-semibold underline" onClick={() => setLocationsRetry((retry) => retry + 1)}>
+                          Try again
+                        </button>
+                      )}
+                    </div>
+                  ) : error ? (
+                    <p role="alert" className="text-sm text-error-700">Unable to load patient records, so villages with registered patients cannot be shown.</p>
+                  ) : rows === null ? (
+                    <p role="status" className="text-sm text-neutral-500">Loading patient records…</p>
+                  ) : registeredVillageGroups.length === 0 ? (
+                    <p className="text-sm text-neutral-500">
+                      No patients have been registered from villages in {user.profile?.mandal || 'your assigned mandal'} yet.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {registeredVillageGroups.flatMap((mandal) => mandal.villages.map((village) => (
+                        <div key={village.id} className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                          <h3 className="font-semibold text-neutral-800">{village.name_en}</h3>
+                          <p className="mt-1 text-xs text-neutral-500">{mandal.name_en} · {village.patients.length} patient{village.patients.length === 1 ? '' : 's'}</p>
+                          <ul className="mt-3 space-y-2 text-sm text-neutral-600">
+                            {village.patients.map((patient) => (
+                              <li key={patient.id}>{patient.name}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )))}
+                    </div>
+                  )}
+                </section>
+              )}
+
               {workspace && (
                 <section className="card flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -197,7 +324,14 @@ export default function Dashboard() {
                   <p className="mt-2 text-xs text-neutral-500">{workspace.status}</p>
                 </div>
                 <Link to={workspace.path} className="btn shrink-0">{workspace.action}<ArrowRight size={16} /></Link>
+                {(user.role === 'MEDICAL_OFFICER' || user.role === 'SPECIALIST') && (
+                  <Link to="/clinical-reports" className="btn shrink-0"><FileText size={16} />Clinical reports</Link>
+                )}
                 </section>
+              )}
+
+              {user.role === 'DISTRICT_ADMIN' && (
+                <OfficialAccountManager embedded />
               )}
 
               {canViewPatients && <section>
@@ -211,7 +345,17 @@ export default function Dashboard() {
           )}
 
           {tab === 'add' && isHW && <PatientForm onSaved={load} />}
-          {tab === 'patients' && canViewPatients && <PatientList rows={rows} loading={!rows && !error} error={error} />}
+          {tab === 'patients' && canViewPatients && (
+            <>
+              <PatientList
+                rows={rows}
+                loading={!rows && !error}
+                error={error}
+                canManage={isHW}
+                onChanged={load}
+              />
+            </>
+          )}
 
           {tab === 'profile' && (
             <div className="card mx-auto max-w-2xl animate-fade-up p-0">

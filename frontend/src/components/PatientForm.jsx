@@ -4,6 +4,9 @@ import { Camera, CheckCircle2, AlertCircle, X, Loader2, User, Stethoscope, Cigar
 import api, { errMsg } from '../api.js';
 import { formatAbha } from '../utils.js';
 import { useLang } from '../lang.jsx';
+import { getOpenCv } from '../opencv.js';
+import { useAuth } from '../auth.jsx';
+import { saveQueuedPatient } from '../offlinePatientQueue.js';
 
 const BLOOD = ['Unknown', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const HABITS = ['Tobacco chewing', 'Smoking', 'Gutkha', 'Areca nut / betel quid', 'Alcohol', 'Reverse chutta smoking'];
@@ -18,38 +21,52 @@ async function checkPhotoQuality(file) {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(3, Math.round(image.width * scale));
     canvas.height = Math.max(3, Math.round(image.height * scale));
-    const context = canvas.getContext('2d', { willReadFrequently: true });
+    const context = canvas.getContext('2d');
     if (!context) throw new Error('Image analysis is unavailable in this browser.');
-
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    const width = canvas.width;
-    const height = canvas.height;
-    const grayscale = new Float32Array(width * height);
+    const cv = await getOpenCv();
+    const matrices = [];
 
-    for (let pixel = 0; pixel < grayscale.length; pixel += 1) {
-      const offset = pixel * 4;
-      grayscale[pixel] = 0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2];
-    }
+    try {
+      const source = cv.imread(canvas);
+      matrices.push(source);
+      const grayscale = new cv.Mat();
+      matrices.push(grayscale);
+      const laplacian = new cv.Mat();
+      matrices.push(laplacian);
+      const mean = new cv.Mat();
+      matrices.push(mean);
+      const standardDeviation = new cv.Mat();
+      matrices.push(standardDeviation);
+      const darkPixels = new cv.Mat();
+      matrices.push(darkPixels);
+      const brightPixels = new cv.Mat();
+      matrices.push(brightPixels);
 
-    let laplacianTotal = 0;
-    let laplacianSquaredTotal = 0;
-    let samples = 0;
-    for (let y = 1; y < height - 1; y += 1) {
-      for (let x = 1; x < width - 1; x += 1) {
-        const index = y * width + x;
-        const laplacian = 4 * grayscale[index]
-          - grayscale[index - 1]
-          - grayscale[index + 1]
-          - grayscale[index - width]
-          - grayscale[index + width];
-        laplacianTotal += laplacian;
-        laplacianSquaredTotal += laplacian * laplacian;
-        samples += 1;
-      }
+      cv.cvtColor(source, grayscale, cv.COLOR_RGBA2GRAY);
+      cv.Laplacian(grayscale, laplacian, cv.CV_64F);
+      cv.meanStdDev(laplacian, mean, standardDeviation);
+      const sharpness = standardDeviation.data64F[0] ** 2;
+      cv.meanStdDev(grayscale, mean, standardDeviation);
+      const averageBrightness = mean.data64F[0];
+      cv.threshold(grayscale, darkPixels, 30, 255, cv.THRESH_BINARY_INV);
+      cv.threshold(grayscale, brightPixels, 225, 255, cv.THRESH_BINARY);
+      const pixelCount = grayscale.rows * grayscale.cols;
+      const darkRatio = cv.countNonZero(darkPixels) / pixelCount;
+      const brightRatio = cv.countNonZero(brightPixels) / pixelCount;
+
+      return {
+        blurry: sharpness < 45,
+        lowResolution: image.width < 640 || image.height < 480,
+        poorLighting: averageBrightness < 45 || averageBrightness > 210
+          || darkRatio > 0.6
+          || brightRatio > 0.6,
+        width: image.width,
+        height: image.height
+      };
+    } finally {
+      matrices.reverse().forEach((matrix) => matrix.delete());
     }
-    const sharpness = laplacianSquaredTotal / samples - (laplacianTotal / samples) ** 2;
-    return sharpness < 45;
   } finally {
     image.close();
   }
@@ -83,10 +100,18 @@ function ChipPicker({ options, fields, nameKey, placeholder, onAdd, onRemove, re
   );
 }
 
-export default function PatientForm({ onSaved }) {
+export default function PatientForm({ onSaved, initialPatient = null, onCancel }) {
   const { t } = useLang();
+  const { user } = useAuth();
+  const isEditing = Boolean(initialPatient);
   const { register, control, handleSubmit, reset, trigger, setValue, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: { symptoms: [], habits: [], tobacco: 'None', blood_group: 'Unknown', gender: '' },
+    defaultValues: initialPatient ? {
+      ...initialPatient,
+      age: String(initialPatient.age),
+      symptoms: initialPatient.symptoms || [],
+      habits: initialPatient.habits || [],
+      consent: initialPatient.consent
+    } : { symptoms: [], habits: [], tobacco: 'None', blood_group: 'Unknown', gender: '' },
   });
   const sym = useFieldArray({ control, name: 'symptoms' });
   const hab = useFieldArray({ control, name: 'habits' });
@@ -95,6 +120,10 @@ export default function PatientForm({ onSaved }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [duplicateCandidates, setDuplicateCandidates] = useState([]);
+  const [duplicateAccepted, setDuplicateAccepted] = useState(false);
+  const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [photoQuality, setPhotoQuality] = useState(null);
@@ -104,6 +133,7 @@ export default function PatientForm({ onSaved }) {
   const streamRef = useRef(null);
   const previewUrlRef = useRef(null);
   const photoCheckIdRef = useRef(0);
+  const clientIdRef = useRef(null);
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -122,12 +152,13 @@ export default function PatientForm({ onSaved }) {
     const nextPreview = nextFile ? URL.createObjectURL(nextFile) : null;
     previewUrlRef.current = nextPreview;
     setFile(nextFile);
+    if (nextFile) setRemoveExistingPhoto(false);
     setPreview(nextPreview);
     setPhotoQuality(nextFile ? { status: 'checking' } : null);
     if (nextFile) {
-      checkPhotoQuality(nextFile).then((isBlurry) => {
+      checkPhotoQuality(nextFile).then((quality) => {
         if (photoCheckIdRef.current === checkId) {
-          setPhotoQuality({ status: isBlurry ? 'blurry' : 'clear' });
+          setPhotoQuality({ status: 'checked', ...quality });
         }
       }).catch(() => {
         if (photoCheckIdRef.current === checkId) {
@@ -219,7 +250,7 @@ export default function PatientForm({ onSaved }) {
     setSymptomError('');
   };
 
-  const onSubmit = async (d) => {
+  const onSubmit = async (d, allowDuplicate = duplicateAccepted) => {
     setError('');
     stopCamera();
     const fd = new FormData();
@@ -228,22 +259,101 @@ export default function PatientForm({ onSaved }) {
     fd.append('habits', JSON.stringify(d.habits));
     fd.append('consent', String(d.consent));
     if (file) fd.append('picture', file);
+    if (removeExistingPhoto) fd.append('remove_picture', 'true');
+
+    if (isEditing) {
+      try {
+        await api.put(`/patients/${initialPatient.id}`, fd);
+        setSaved(true);
+        onSaved?.();
+      } catch (requestError) {
+        setError(errMsg(requestError));
+      }
+      return;
+    }
+
+    clientIdRef.current ||= crypto.randomUUID();
+    fd.append('client_id', clientIdRef.current);
+    if (allowDuplicate) fd.append('allow_duplicate', 'true');
     try {
-      await api.post('/patients', fd);
+      await api.post('/patients', fd, {
+        headers: { 'Idempotency-Key': clientIdRef.current }
+      });
       setSaved(true);
+      setOfflineSaved(false);
+      setDuplicateCandidates([]);
       onSaved?.();
-    } catch (e) { setError(errMsg(e)); }
+    } catch (requestError) {
+      if (requestError.response?.status === 409 && requestError.response.data?.duplicateCandidates) {
+        setDuplicateCandidates(requestError.response.data.duplicateCandidates);
+        setDuplicateAccepted(false);
+        return;
+      }
+      if (!requestError.response && !requestError.code?.includes('CANCEL')) {
+        try {
+          await saveQueuedPatient({
+            clientId: clientIdRef.current,
+            workerId: String(user.id),
+            createdAt: new Date().toISOString(),
+            patient: {
+              name: d.name.trim(),
+              age: String(d.age),
+              gender: d.gender,
+              mobile: d.mobile,
+              village: d.village || '',
+              abha_number: d.abha_number || '',
+              blood_group: d.blood_group || '',
+              previous_health: d.previous_health || '',
+              medications: d.medications || '',
+              tobacco: d.tobacco || 'None',
+              symptoms: d.symptoms,
+              habits: d.habits,
+              consent: String(d.consent),
+              picture: file
+            }
+          });
+          window.dispatchEvent(new Event('patient-queue-updated'));
+          setSaved(true);
+          setOfflineSaved(true);
+          onSaved?.({ offline: true });
+          return;
+        } catch (storageError) {
+          console.error('Unable to queue patient for offline sync:', storageError);
+          setError('Network unavailable and this record could not be saved on this device. Keep this page open and retry.');
+          return;
+        }
+      }
+      setError(errMsg(requestError));
+    }
   };
 
-  const again = () => { stopCamera(); reset(); setPhoto(null); setStep(0); setSaved(false); setError(''); setCameraError(''); };
+  const again = () => {
+    stopCamera();
+    reset({ symptoms: [], habits: [], tobacco: 'None', blood_group: 'Unknown', gender: '' });
+    setPhoto(null);
+    setStep(0);
+    setSaved(false);
+    setOfflineSaved(false);
+    setError('');
+    setCameraError('');
+    setDuplicateCandidates([]);
+    setDuplicateAccepted(false);
+    clientIdRef.current = null;
+  };
 
   if (saved) {
     return (
       <div className="card mx-auto max-w-xl animate-fade-up py-12 text-center">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-600"><CheckCircle2 size={34} /></span>
-        <h2 className="mt-5 text-2xl font-bold">Patient saved</h2>
-        <p className="mt-1 text-neutral-500">The record is now visible to the medical team.</p>
-        <button className="btn mt-6" onClick={again}>Add another patient</button>
+        <h2 className="mt-5 text-2xl font-bold">{offlineSaved ? 'Saved on this device' : isEditing ? 'Patient updated' : 'Patient saved'}</h2>
+        <p className="mt-1 text-neutral-500">
+          {offlineSaved
+            ? 'This record is waiting to sync. It is stored unencrypted in this browser on this device.'
+            : isEditing ? 'The patient record has been updated.' : 'The record is now visible to the medical team.'}
+        </p>
+        {offlineSaved && <p className="mx-auto mt-3 max-w-md text-sm text-warning-800">Do not use offline storage on a shared or unsecured device. Keep this device protected until the record syncs.</p>}
+        {!isEditing && <button className="btn mt-6" onClick={again}>Add another patient</button>}
+        {isEditing && <button className="btn mt-6" onClick={onCancel}>Done</button>}
       </div>
     );
   }
@@ -350,7 +460,7 @@ export default function PatientForm({ onSaved }) {
               ) : (
                 <div className="flex flex-col gap-4 rounded-2xl border-2 border-dashed border-primary-300 bg-primary-50/60 p-4 sm:flex-row sm:items-center">
                   <span className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-primary-600 ring-1 ring-primary-200">
-                    {preview ? <img src={preview} alt="Captured patient photo preview" className="h-full w-full object-cover" /> : <Camera size={28} />}
+                    {preview ? <img src={preview} alt="Captured patient photo preview" className="h-full w-full object-cover" /> : initialPatient?.picture_path && !removeExistingPhoto ? <img src={`${api.defaults.baseURL.replace(/\/api$/, '')}${initialPatient.picture_path}`} alt="Current patient photo" className="h-full w-full object-cover" /> : <Camera size={28} />}
                   </span>
                   <div className="flex-1 text-sm text-neutral-600">
                     <b className="block text-neutral-800">{preview ? 'Photo ready' : 'Capture or choose a photo'}</b>
@@ -372,27 +482,70 @@ export default function PatientForm({ onSaved }) {
                             }
                           }} />
                       </label>
-                      {preview && <button type="button" className="btn-ghost" onClick={() => setPhoto(null)}><X size={16} />Remove photo</button>}
+                      {(preview || (isEditing && initialPatient.picture_path && !removeExistingPhoto)) && (
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => {
+                            if (preview) setPhoto(null);
+                            else setRemoveExistingPhoto(true);
+                          }}
+                        >
+                          <X size={16} />Remove photo
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
               {cameraError && <p role="alert" className="mt-2 flex items-center gap-2 rounded-xl bg-error-50 p-3 text-sm text-error-700"><AlertCircle size={16} />{cameraError}</p>}
               {photoQuality?.status === 'checking' && (
-                <p role="status" className="mt-3 flex items-center gap-2 text-sm text-neutral-600"><Loader2 className="animate-spin" size={16} />Checking image clarity on this device…</p>
+                <p role="status" className="mt-3 flex items-center gap-2 text-sm text-neutral-600"><Loader2 className="animate-spin" size={16} />Checking photo quality on this device…</p>
               )}
-              {photoQuality?.status === 'clear' && (
-                <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-success-50 p-3 text-sm text-success-700"><CheckCircle2 size={16} />The image appears clear. A clinician must still review it.</p>
+              {photoQuality?.status === 'checked' && (
+                <div role={photoQuality.blurry ? 'alert' : 'status'} className={`mt-3 rounded-xl p-3 text-sm ${photoQuality.blurry || photoQuality.lowResolution || photoQuality.poorLighting ? 'bg-warning-50 text-warning-800' : 'bg-success-50 text-success-700'}`}>
+                  <p className="flex items-center gap-2 font-semibold">
+                    {photoQuality.blurry || photoQuality.lowResolution || photoQuality.poorLighting
+                      ? <AlertCircle size={16} />
+                      : <CheckCircle2 size={16} />}
+                    On-device photo quality check
+                  </p>
+                  <ul className="mt-2 list-inside list-disc space-y-1">
+                    <li>{photoQuality.blurry ? 'Focus: image may be blurry; retake it while holding the camera steady.' : 'Focus: no obvious blur detected.'}</li>
+                    <li>{photoQuality.lowResolution ? `Image size: ${photoQuality.width} × ${photoQuality.height}; use at least 640 × 480 pixels if possible.` : `Image size: ${photoQuality.width} × ${photoQuality.height} pixels.`}</li>
+                    <li>{photoQuality.poorLighting ? 'Lighting: image may be too dark or too bright; adjust lighting and retake it if possible.' : 'Lighting: no obvious overall exposure issue detected.'}</li>
+                  </ul>
+                </div>
               )}
-              {(photoQuality?.status === 'blurry' || photoQuality?.status === 'error') && (
+              {photoQuality?.status === 'error' && (
                 <p role="alert" className="mt-3 flex items-center gap-2 rounded-xl bg-warning-50 p-3 text-sm text-warning-800">
                   <AlertCircle size={16} />
-                  {photoQuality.status === 'blurry'
-                    ? 'The image appears blurry. Hold the camera steady, focus on the affected area, and retake it.'
-                    : 'This image could not be checked. Please choose or capture another image.'}
+                  This image could not be checked. Please choose or capture another image.
                 </p>
               )}
-              <p className="mt-2 text-xs text-neutral-500">Automatic screening checks only whether the image appears blurry or clear. It cannot confirm that the affected area is correctly framed, detect disease, or replace clinical review.</p>
+              {duplicateCandidates.length > 0 && (
+                <div className="mt-4 rounded-xl border border-warning-300 bg-warning-50 p-4 text-sm text-warning-900" role="alert">
+                  <p className="font-semibold">Possible duplicate patient record</p>
+                  <p className="mt-1">The mobile number or ABHA number matches an existing record. Review these records before continuing:</p>
+                  <ul className="mt-2 list-inside list-disc">
+                    {duplicateCandidates.map((candidate) => (
+                      <li key={candidate.id}>{candidate.name} · Patient #{candidate.id} · {candidate.mobile}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" className="btn" onClick={() => setDuplicateCandidates([])}>Review existing record</button>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={handleSubmit((data) => onSubmit(data, true))}
+                      disabled={isSubmitting}
+                    >
+                      Continue as a separate patient
+                    </button>
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-neutral-500">This check runs on this device and assesses only blur, image size, and overall lighting. It does not interpret the mouth image or detect disease. No clinical AI screening service is connected; a health professional must review the image and symptoms.</p>
             </div>
             <div className="rounded-2xl bg-neutral-50 p-4 ring-1 ring-neutral-200">
               <label className="flex items-start gap-3 text-sm">
@@ -406,10 +559,13 @@ export default function PatientForm({ onSaved }) {
       </div>
 
       <div className="mt-5 flex items-center justify-between">
-        <button type="button" className="btn-ghost" onClick={() => setStep((s) => Math.max(s - 1, 0))} disabled={step === 0}><ArrowLeft size={16} />{t('back')}</button>
+        <div className="flex gap-2">
+          {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>}
+          <button type="button" className="btn-ghost" onClick={() => setStep((s) => Math.max(s - 1, 0))} disabled={step === 0}><ArrowLeft size={16} />{t('back')}</button>
+        </div>
         {step < 3
           ? <button type="submit" className="btn">{t('next')}<ArrowRight size={16} /></button>
-          : <button type="submit" className="btn" disabled={isSubmitting || photoQuality?.status === 'checking' || photoQuality?.status === 'blurry' || photoQuality?.status === 'error'}>{isSubmitting && <Loader2 className="animate-spin" size={16} />}{t('save')}</button>}
+          : <button type="submit" className="btn" disabled={isSubmitting || photoQuality?.status === 'checking' || photoQuality?.blurry || photoQuality?.status === 'error'}>{isSubmitting && <Loader2 className="animate-spin" size={16} />}{isEditing ? 'Save changes' : t('save')}</button>}
       </div>
     </form>
   );

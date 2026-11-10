@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Search, Users, ChevronRight, Loader2, Fingerprint } from 'lucide-react';
+import { Search, Users, ChevronRight, Loader2, Fingerprint, FileText } from 'lucide-react';
 import { API_URL } from '../api.js';
-import { initials, riskOf, fmtDate } from '../utils.js';
+import { initials, riskOf, fmtDate, formatPatientId } from '../utils.js';
 import { useLang } from '../lang.jsx';
 import PatientDrawer from './PatientDrawer.jsx';
+import PatientForm from './PatientForm.jsx';
+import api, { errMsg } from '../api.js';
 
 export function Avatar({ p, size = 'h-11 w-11' }) {
   return p.picture_path
@@ -18,11 +20,25 @@ export function RiskIndicator({ p }) {
 }
 
 // Searchable patient list. Pass `limit` to show only the latest few (used on the overview).
-export default function PatientList({ rows, loading, error, limit, compact = false }) {
+export default function PatientList({ rows, loading, error, limit, compact = false, canManage = false, onChanged }) {
   const { t } = useLang();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [actionError, setActionError] = useState('');
+
+  const archivePatient = async (patient) => {
+    if (!window.confirm(`Archive ${patient.name}'s record? It will be hidden from your patient list, but retained for clinical history.`)) return;
+    setActionError('');
+    try {
+      await api.delete(`/patients/${patient.id}`);
+      setOpen(null);
+      onChanged?.();
+    } catch (requestError) {
+      setActionError(errMsg(requestError));
+    }
+  };
 
   const shown = useMemo(() => {
     let list = rows || [];
@@ -36,6 +52,18 @@ export default function PatientList({ rows, loading, error, limit, compact = fal
 
   if (error) return <p className="card text-error-700">{error}</p>;
   if (loading) return <p className="card flex items-center gap-2 text-neutral-500"><Loader2 className="animate-spin" size={16} />Loading…</p>;
+  if (editing) {
+    return (
+      <PatientForm
+        initialPatient={editing}
+        onCancel={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          onChanged?.();
+        }}
+      />
+    );
+  }
   if (!rows?.length) {
     return (
       <div className="card py-14 text-center">
@@ -68,8 +96,9 @@ export default function PatientList({ rows, loading, error, limit, compact = fal
             <Avatar p={p} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{p.name}</p>
-              <p className="truncate text-sm text-neutral-500">{p.age} yrs · {p.gender}{p.village ? ` · ${p.village}` : ''} · {p.mobile}</p>
+              <p className="truncate text-sm text-neutral-500">{formatPatientId(p.id)} · {p.age} yrs · {p.gender}{p.village ? ` · ${p.village}` : ''} · {p.mobile}</p>
               {!compact && p.symptoms.length > 0 && <p className="mt-0.5 truncate text-xs text-neutral-400">{p.symptoms.map((s) => s.name).join(', ')}</p>}
+              {p.has_clinical_report && <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary-700"><FileText size={12} />Clinical report available</p>}
             </div>
             <div className="hidden text-right sm:block">
               {p.abha_number && <p className="mb-1 flex items-center justify-end gap-1 text-xs text-primary-700"><Fingerprint size={13} />ABHA</p>}
@@ -81,7 +110,17 @@ export default function PatientList({ rows, loading, error, limit, compact = fal
         ))}
         {!shown.length && <p className="p-8 text-center text-sm text-neutral-500">No matching patients.</p>}
       </div>
-      <PatientDrawer patient={open} onClose={() => setOpen(null)} />
+      {actionError && <p className="mt-3 text-sm text-error-700" role="alert">{actionError}</p>}
+      <PatientDrawer
+        patient={open}
+        onClose={() => setOpen(null)}
+        canManage={canManage}
+        onEdit={(patient) => {
+          setOpen(null);
+          setEditing(patient);
+        }}
+        onArchive={archivePatient}
+      />
     </div>
   );
 }

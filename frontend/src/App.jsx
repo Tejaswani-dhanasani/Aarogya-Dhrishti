@@ -10,14 +10,12 @@ import HomePage from './portal/HomePage.jsx';
 import StaffRegister from './portal/RegisterPage.jsx';
 import PatientManagement from './portal/PatientManagement.jsx';
 import MedicalOfficerReview from './portal/MedicalOfficerReview.jsx';
-import SpecialistConsultation from './portal/SpecialistConsultation.jsx';
 import OfficialAccountManager from './portal/OfficialAccountManager.jsx';
 import ComingSoon from './portal/ComingSoon.jsx';
-<<<<<<< HEAD
-import ConsultationPage from "./pages/ConsultationPage";
-=======
 import FollowUp from './pages/FollowUp.jsx';
->>>>>>> df543dee8ea0aee3511a02a824153b8191eeca3f
+import ConsultationPage from './pages/ConsultationPage.jsx';
+import SpecialistConsultations from './pages/SpecialistConsultations.jsx';
+import ClinicalReports from './pages/ClinicalReports.jsx';
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -51,14 +49,12 @@ export default function App() {
       <Route path="/overview" element={<RoleOnly allowedRoles={['DISTRICT_ADMIN']}><Navigate to="/dashboard" replace /></RoleOnly>} />
       <Route path="/patients" element={<RoleOnly allowedRoles={['MEDICAL_OFFICER']}><PatientManagement /></RoleOnly>} />
       <Route path="/medical-officer/review" element={<RoleOnly allowedRoles={['MEDICAL_OFFICER']}><MedicalOfficerReview /></RoleOnly>} />
-      <Route path="/specialist/consultation" element={<RoleOnly allowedRoles={['SPECIALIST']}><SpecialistConsultation /></RoleOnly>} />
+      <Route path="/specialist/consultation" element={<RoleOnly allowedRoles={['SPECIALIST']}><SpecialistConsultations /></RoleOnly>} />
+      <Route path="/clinical-reports" element={<RoleOnly allowedRoles={['MEDICAL_OFFICER', 'SPECIALIST']}><ClinicalReports /></RoleOnly>} />
       <Route path="/staff-management" element={<RoleOnly allowedRoles={['SUPER_ADMIN', 'DISTRICT_ADMIN']}><OfficialAccountManager /></RoleOnly>} />
       <Route path="/follow-up" element={<RoleOnly allowedRoles={['NAVIGATOR']}><FollowUp /></RoleOnly>}/>
       <Route path="/reports" element={<RoleOnly allowedRoles={['DISTRICT_ADMIN']}><ComingSoon title="Reports & Analytics" /></RoleOnly>} />
-      <Route
-  path="/consultation"
-  element={<ConsultationPage />}
-/>
+      <Route path="/patient-consultation/:roomName" element={<ConsultationPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

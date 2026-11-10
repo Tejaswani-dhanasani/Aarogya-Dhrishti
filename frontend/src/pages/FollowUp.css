@@ -79,6 +79,110 @@
   border-color: #159b83;
 }
 
+.followup-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.4fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.followup-patient-list {
+  display: grid;
+  gap: 10px;
+}
+
+.patient-card {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  color: #173b57;
+  background: #fff;
+  border: 1px solid #dce3eb;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.patient-card span,
+.followup-history-item small {
+  color: #718096;
+  font-size: 13px;
+}
+
+.patient-card.selected {
+  border-color: #159b83;
+  box-shadow: 0 0 0 2px #159b8320;
+}
+
+.followup-details {
+  min-width: 0;
+}
+
+.followup-details h2,
+.followup-details h3 {
+  color: #173b57;
+}
+
+.followup-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.followup-form label {
+  margin-top: 6px;
+  color: #354b5d;
+  font-weight: 600;
+}
+
+.followup-form textarea,
+.followup-form input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.followup-form textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.followup-form button {
+  justify-self: start;
+  padding: 11px 16px;
+  color: white;
+  background: #087b65;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.followup-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.followup-history-item {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid #e5ebf0;
+}
+
+.followup-history-item p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.error-message {
+  color: #b42318;
+}
+
 .empty-patients {
   text-align: center;
   padding: 45px 15px;
@@ -100,6 +204,10 @@
   }
 
   .followup-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .followup-layout {
     grid-template-columns: 1fr;
   }
 

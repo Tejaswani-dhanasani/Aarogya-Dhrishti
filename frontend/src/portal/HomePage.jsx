@@ -44,22 +44,22 @@ const features = [
 const staffRoles = [
   {
     title: "Medical Officer",
-    description: "Review patient screenings and manage clinical decisions.",
+    description: "Register for District Admin approval, review patient screenings and manage clinical decisions.",
     role: "medical-officer"
   },
   {
     title: "Specialist",
-    description: "Review referrals and provide specialist consultations.",
+    description: "Register for District Admin approval, review referrals and provide specialist consultations.",
     role: "specialist"
   },
   {
     title: "Patient Navigator",
-    description: "Coordinate patient referrals and follow-up activities.",
+    description: "Register for District Admin approval, coordinate referrals and follow-up activities.",
     role: "patient-navigator"
   },
   {
     title: "District Admin",
-    description: "Monitor district-level activities and platform reports.",
+    description: "Register for immediate access to district-level activities and platform reports.",
     role: "district-admin"
   }
 ];
@@ -72,7 +72,7 @@ function HomePage() {
       <nav className="navbar">
         <Link to="/" className="brand">
           <span className="brand-icon">✚</span>
-          AAROGYA DRISHTI
+          SEHAT · HEALTH FOR EVERY VILLAGE
         </Link>
 
         <div className="nav-links">
@@ -133,7 +133,7 @@ function HomePage() {
         <h2>Healthcare Support Through Technology</h2>
 
         <p>
-          Aarogya Drishti aims to connect patients, healthcare
+          Sehat aims to connect patients, healthcare
           workers, medical officers, specialists and administrators
           through a unified digital platform. It supports the
           screening and referral process while keeping clinical
@@ -182,10 +182,11 @@ function HomePage() {
       {/* Staff Access */}
       <section className="section staff-section" id="staff">
         <span className="section-label">STAFF PORTAL</span>
-        <h2>Official Login</h2>
+        <h2>Official Access</h2>
 
         <p className="section-description">
-          Officials sign in with accounts created by the appropriate administrator.
+          Medical Officers, Specialists and Navigators need District Admin approval.
+          District Admin accounts are active immediately after registration.
         </p>
 
         <div className="staff-grid">
@@ -198,7 +199,9 @@ function HomePage() {
                 <Link to={`/login/${staff.role}`}>
                   Login
                 </Link>
-
+                <Link to={`/register/${staff.role}`}>
+                  Register
+                </Link>
               </div>
             </div>
           ))}
@@ -207,11 +210,12 @@ function HomePage() {
 
       {/* Footer */}
       <footer className="footer">
-        <h3>AAROGYA DRISHTI</h3>
+        <h3>SEHAT</h3>
+        <p>Health for Every Village</p>
         <p>
           AI-Assisted Oral Healthcare Screening and Patient Care Platform
         </p>
-        <p>© 2026 Aarogya Drishti | Project Demonstration</p>
+        <p>© 2026 Sehat | Project Demonstration</p>
       </footer>
 
     </div>

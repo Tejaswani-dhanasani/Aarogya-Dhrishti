@@ -114,7 +114,7 @@ function OralScreening() {
 
       <header className="screening-header">
         <Link to="/" className="screening-brand">
-          ✚ AAROGYA DRISHTI
+          ✚ SEHAT · HEALTH FOR EVERY VILLAGE
         </Link>
 
         <Link to="/patients" className="screening-back">
